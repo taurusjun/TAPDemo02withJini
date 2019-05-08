@@ -1,0 +1,53 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558 
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "TapQuoteAPI g++ build",
+            "command": "/usr/bin/g++",
+            "args": [
+                "-ggdb",
+                "TapQuoteAPI/Demo.cpp",
+                "${workspaceFolder}/Common/SimpleEvent.cpp",
+                "${workspaceFolder}/TapQuoteAPI/Quote.cpp",
+                "-o",
+                "dst/TapQuoteAPI/Demo.out",
+                "-I",
+                "${workspaceFolder}/api/include",
+                "-L${workspaceFolder}/api/lib",
+                "-lTapTradeAPI",
+                "-lTapQuoteAPI"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "type": "shell",
+            "label": "TapTradeAPI g++ build",
+            "command": "/usr/bin/g++",
+            "args": [
+                "-ggdb",
+                "TapTradeAPI/Demo.cpp",
+                "${workspaceFolder}/Common/SimpleEvent.cpp",
+                "${workspaceFolder}/TapTradeAPI/Trade.cpp",
+                "-o",
+                "dst/TapTradeAPI/Demo.out",
+                "-I",
+                "${workspaceFolder}/api/include",
+                "-L${workspaceFolder}/api/lib",
+                "-lTapTradeAPI",
+                "-lTapQuoteAPI"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}

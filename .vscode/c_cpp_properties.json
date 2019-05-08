@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/api/include",
+                "${workspaceFolder}/**",
+                "/usr/include/c++/4.8.2/x86_64-redhat-linux",
+                "/usr/lib/gcc/x86_64-redhat-linux/4.8.2/include",
+                "/usr/include",
+                "/usr/local/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}
