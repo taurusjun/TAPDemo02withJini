@@ -1,7 +1,7 @@
 #include "string.h"
 
-#ifndef QUOTE_CONFIG_H
-#define QUOTE_CONFIG_H
+#ifndef TAPMARKETDATA_CONFIG_H
+#define TAPMARKETDATA_CONFIG_H
 
 //行情IP地址与端口 联通
 #define DEFAULT_IP1		("61.163.243.173")
@@ -57,4 +57,4 @@ template<size_t size> inline void APIStrncpy(char (&Dst)[size], const char* sour
 #endif
 }
 
-#endif // QUOTE_CONFIG_H
+#endif // TAPMARKETDATA_CONFIG_H

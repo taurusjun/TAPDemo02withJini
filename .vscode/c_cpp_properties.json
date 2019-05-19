@@ -4,11 +4,15 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/api/include",
+                "${workspaceFolder}/Common",
                 "${workspaceFolder}/**",
                 "/usr/include/c++/4.8.2/x86_64-redhat-linux",
                 "/usr/lib/gcc/x86_64-redhat-linux/4.8.2/include",
                 "/usr/include",
-                "/usr/local/include"
+                "/usr/local/include",
+                "/usr/java/jdk1.8.0_192-amd64/include/linux",
+                "/usr/java/jdk1.8.0_192-amd64/include",
+                "/usr/local/include/unlib"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

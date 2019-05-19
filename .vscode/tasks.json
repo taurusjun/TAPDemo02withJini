@@ -43,11 +43,77 @@
             ],
             "problemMatcher": [
                 "$gcc"
+            ]
+        },
+        {
+            "type": "shell",
+            "label": "TapMD Test g++ build",
+            "command": "/usr/bin/g++",
+            "args": [
+                "-std=c++11",
+                "-ggdb",
+                "impl/Main.cpp",
+                "impl/TAPSimpleEvent.cpp",
+                "impl/TAPMarketDataImpl.cpp",
+                "-o",
+                "dst/impl/Main.out",
+                "-I${workspaceFolder}/api/include",
+                "-I/usr/local/include/unlib",
+                "-I/usr/java/jdk1.8.0_192-amd64/include/linux",
+                "-I/usr/java/jdk1.8.0_192-amd64/include",
+                "-L/usr/local/lib",
+                "-L/usr/local/unown",
+                "-L${workspaceFolder}/api/lib",
+                "-lboost_thread",
+                "-lboost_locale",
+                "-lboost_system",
+                "-lpthread",
+                "-lunlib",
+                "-lTapTradeAPI",
+                "-lTapQuoteAPI"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "type": "shell",
+            "label": "libTAPMD build",
+            "command": "/usr/bin/g++",
+            "args": [
+                "-std=c++11",
+                "-ggdb",
+                "impl/TAPMarketDataImpl.cpp",
+                "impl/TAPSimpleEvent.cpp",
+                "jni/native_ctp.cpp",
+                "-fPIC",
+                "-shared",
+                "-o",
+                "dst/libTAPMD.so",
+                "-I${workspaceFolder}/api/include",
+                "-I${workspaceFolder}/impl",
+                "-I${workspaceFolder}/jni",
+                "-I/usr/local/include/unlib",
+                "-I/usr/java/jdk1.8.0_192-amd64/include/linux",
+                "-I/usr/java/jdk1.8.0_192-amd64/include",
+                "-L/usr/local/lib",
+                "-L/usr/local/unown",
+                "-L${workspaceFolder}/api/lib",
+                "-lboost_thread",
+                "-lboost_locale",
+                "-lboost_system",
+                "-lpthread",
+                "-lunlib",
+                "-lTapTradeAPI",
+                "-lTapQuoteAPI"
+            ],
+            "problemMatcher": [
+                "$gcc"
             ],
             "group": {
                 "kind": "build",
                 "isDefault": true
             }
         }
-    ]
+     ]
 }
