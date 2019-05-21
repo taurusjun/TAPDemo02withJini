@@ -4,7 +4,7 @@
  * and open the template in the editor.
  */
 
-#include "native_ctp.h"
+#include "native_tap.h"
 #include "jni/JNIThreadManager.h"
 #include "TAPMarketDataImpl.h"
 #include "collections/ConcurrentQueue.hpp"
@@ -274,7 +274,7 @@ bool retrieve_security_by_shortname(std::string _shortname, SecurityDefinition* 
 // 	ctp_orderentry->request(msg, _length);
 // }
 ///---------------------------------------------------------------------------------------------------
-JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024MarketData_register(JNIEnv* _env, jobject _this, jobject _callback, jobject _config)
+JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024MarketData_register(JNIEnv* _env, jobject _this, jobject _callback, jobject _config)
 {
 	boost::mutex::scoped_lock lock(registration_mutex);
 
@@ -310,33 +310,63 @@ JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024MarketData_register
 	}
 }
 
-JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024MarketData_deregister(JNIEnv* _env, jobject _this)
+JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024MarketData_deregister(JNIEnv* _env, jobject _this)
 {
 	destroy_logger();
 }
 
-JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024MarketData_connect(JNIEnv* _env, jobject _this)
+JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024MarketData_connect(JNIEnv* _env, jobject _this)
 {
 	tap_marketdata->connect();
 }
 
-JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024MarketData_disconnect(JNIEnv* _env, jobject _this)
+JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024MarketData_disconnect(JNIEnv* _env, jobject _this)
 {
 	tap_marketdata->disconnect();
 }
 
-JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024MarketData_subscribe(JNIEnv* _env, jobject _this, jstring _uid)
+JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024MarketData_subscribe(JNIEnv* _env, jobject _this, jobject _contract)
 {
 	JavaThreadID id = boost::this_thread::get_id();
 	threadManager->cacheJavaThreadEnv(id, _env);
-	tap_marketdata->subscribe(std::string(_env->GetStringUTFChars(_uid, 0)));
+	std::string exchangeNo = getFieldAsString(_env, _contract, "exchangeNo");
+	std::string commodityType = getFieldAsString(_env, _contract, "commodityType");
+	std::string commodityNo = getFieldAsString(_env, _contract, "commodityNo");
+	std::string contractNo = getFieldAsString(_env, _contract, "contractNo");
+
+	TapAPIContract contract;
+	memset(&contract, 0, sizeof(contract));
+	strcpy(contract.Commodity.ExchangeNo, exchangeNo.c_str());
+	contract.Commodity.CommodityType = commodityType.c_str()[0];
+	strcpy(contract.Commodity.CommodityNo, commodityNo.c_str());
+	strcpy(contract.ContractNo1, contractNo.c_str());
+	contract.CallOrPutFlag1 = TAPI_CALLPUT_FLAG_NONE;
+	contract.CallOrPutFlag2 = TAPI_CALLPUT_FLAG_NONE;
+	TAPIUINT32 m_uiSessionID = 0;
+
+	tap_marketdata->subscribe(&contract);
 	threadManager->releaseJavaThreadEnv(id);
 }
 
-JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024MarketData_unsubscribe(JNIEnv* _env, jobject _this, jstring _uid)
+JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024MarketData_unsubscribe(JNIEnv* _env, jobject _this, jobject _contract)
 {
 	JavaThreadID id = boost::this_thread::get_id();
 	threadManager->cacheJavaThreadEnv(id, _env);
-	tap_marketdata->unsubscribe(std::string(_env->GetStringUTFChars(_uid, 0)));
+	std::string exchangeNo = getFieldAsString(_env, _contract, "exchangeNo");
+	std::string commodityType = getFieldAsString(_env, _contract, "commodityType");
+	std::string commodityNo = getFieldAsString(_env, _contract, "commodityNo");
+	std::string contractNo = getFieldAsString(_env, _contract, "contractNo");
+
+	TapAPIContract contract;
+	memset(&contract, 0, sizeof(contract));
+	strcpy(contract.Commodity.ExchangeNo, exchangeNo.c_str());
+	contract.Commodity.CommodityType = commodityType.c_str()[0];
+	strcpy(contract.Commodity.CommodityNo, commodityNo.c_str());
+	strcpy(contract.ContractNo1, contractNo.c_str());
+	contract.CallOrPutFlag1 = TAPI_CALLPUT_FLAG_NONE;
+	contract.CallOrPutFlag2 = TAPI_CALLPUT_FLAG_NONE;
+	TAPIUINT32 m_uiSessionID = 0;
+
+	tap_marketdata->unsubscribe(&contract);
 	threadManager->releaseJavaThreadEnv(id);
 }

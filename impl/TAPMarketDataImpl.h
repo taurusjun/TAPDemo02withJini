@@ -51,13 +51,13 @@ class TAPMarketDataImpl : public ITapQuoteAPINotify
 		TAPMarketDataImpl(JNIThreadManager*,CallbackFunc,SecurityIDLookupFunc,LoggerFunc);
 		virtual ~TAPMarketDataImpl();
 
-		void configure(std::string, std::string, std::string, std::string, std::string);
+		void configure(std::string, std::string, std::string, std::string, std::string, std::string);
 
 		bool connect();
 		void disconnect();
 
-		void subscribe(std::string);
-		void unsubscribe(std::string);
+		void subscribe(TapAPIContract* stContract);
+		void unsubscribe(TapAPIContract* stContract);
 
 		//implementation of ITapQuoteAPINotify
 		virtual void TAP_CDECL OnRspLogin(TAPIINT32 errorCode, const TapAPIQuotLoginRspInfo *info);
@@ -106,6 +106,7 @@ class TAPMarketDataImpl : public ITapQuoteAPINotify
 		boost::mutex subscriptionMutex;
 
 		std::string address;
+		unsigned short port;
 		std::string brokerID;
 		std::string userID;
 		std::string password;
@@ -132,7 +133,7 @@ class TAPMarketDataImpl : public ITapQuoteAPINotify
 inline
 static std::string getInstrumentIDFromTapQuoteMsg(const TapAPIQuoteWhole* _message){
 	std::ostringstream os;
-	os << _message->Contract.Commodity.CommodityType << _message->Contract.Commodity.CommodityNo;
+	os << _message->Contract.Commodity.CommodityNo << _message->Contract.ContractNo1;
 	return os.str();
 }
 

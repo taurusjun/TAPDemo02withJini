@@ -85,7 +85,7 @@
                 "-ggdb",
                 "impl/TAPMarketDataImpl.cpp",
                 "impl/TAPSimpleEvent.cpp",
-                "jni/native_ctp.cpp",
+                "jni/native_tap.cpp",
                 "-fPIC",
                 "-shared",
                 "-o",

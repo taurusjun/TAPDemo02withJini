@@ -69,9 +69,10 @@ TAPMarketDataImpl::~TAPMarketDataImpl()
 	delete(this->securityCache);
 }
 
-void TAPMarketDataImpl::configure(std::string _address, std::string _brokerID, std::string _userID, std::string _password, std::string _exdest)
+void TAPMarketDataImpl::configure(std::string _address, std::string _port, std::string _brokerID, std::string _userID, std::string _password, std::string _exdest)
 {
 	this->address = _address;
+	this->port = (unsigned short) strtoul(_port.c_str(), NULL, 0);;
 	this->brokerID = _brokerID;
 	this->userID = _userID;
 	this->password = _password;
@@ -119,7 +120,7 @@ bool TAPMarketDataImpl::connect()
 
 	TAPIINT32 iErr = TAPIERROR_SUCCEED;
 	bool rslt = true;
-	iErr = this->mdApi->SetHostAddress(DEFAULT_IP, DEFAULT_PORT);
+	iErr = this->mdApi->SetHostAddress(this->address.c_str(), this->port);
 	if(TAPIERROR_SUCCEED != iErr) {
 		cout << "SetHostAddress Error:" << iErr <<endl;
 		return false;
@@ -159,8 +160,8 @@ bool TAPMarketDataImpl::login()
 
 	TapAPIQuoteLoginAuth stLoginAuth;
 	memset(&stLoginAuth, 0, sizeof(stLoginAuth));
-	APIStrncpy(stLoginAuth.UserNo, DEFAULT_USERNAME);
-	APIStrncpy(stLoginAuth.Password, DEFAULT_PASSWORD);
+	strcpy(stLoginAuth.UserNo, this->userID.c_str());
+	strcpy(stLoginAuth.Password, this->password.c_str());
 	stLoginAuth.ISModifyPassword = APIYNFLAG_NO;
 	stLoginAuth.ISDDA = APIYNFLAG_NO;
 	TAPIINT32 iErr = TAPIERROR_SUCCEED;
@@ -181,69 +182,58 @@ bool TAPMarketDataImpl::login()
 	return true;
 }
 
-void TAPMarketDataImpl::subscribe(std::string _securityID)
+void TAPMarketDataImpl::subscribe(TapAPIContract* contract)
 {
 	boost::mutex::scoped_lock lock(this->subscriptionMutex);
 
+	std::ostringstream os1;
+	os1 << contract->Commodity.CommodityNo << contract->ContractNo1 ;
+	std::string strContract = os1.str();
+	
 	std::ostringstream os;
-	os << "[TAP-MD] Subscribing to security[" << _securityID << "]";
+	os << "[TAP-MD] Subscribing to security[" << strContract<< "]";
 	this->logger(os.str());
 
-	TapAPIContract stContract;
-	memset(&stContract, 0, sizeof(stContract));
-	// APIStrncpy(stContract.Commodity.ExchangeNo, DEFAULT_EXCHANGE_NO);
-	strcpy(stContract.Commodity.ExchangeNo, DEFAULT_EXCHANGE_NO);
-	stContract.Commodity.CommodityType = DEFAULT_COMMODITY_TYPE;
-	// APIStrncpy(stContract.Commodity.CommodityNo, DEFAULT_COMMODITY_NO);
-	// APIStrncpy(stContract.ContractNo1, DEFAULT_CONTRACT_NO);
-	strcpy(stContract.Commodity.CommodityNo, DEFAULT_COMMODITY_NO);
-	strcpy(stContract.ContractNo1, DEFAULT_CONTRACT_NO);
-	stContract.CallOrPutFlag1 = TAPI_CALLPUT_FLAG_NONE;
-	stContract.CallOrPutFlag2 = TAPI_CALLPUT_FLAG_NONE;
-	TAPIUINT32 m_uiSessionID = 0;
+	TAPIUINT32 m_uiSessionID = this->getNextRequestID();
     TAPIINT32 iErr = TAPIERROR_SUCCEED;
-	iErr = this->mdApi->SubscribeQuote(&m_uiSessionID, &stContract);
+	iErr = this->mdApi->SubscribeQuote(&m_uiSessionID, contract);
 	if(TAPIERROR_SUCCEED != iErr) {
 		std::ostringstream os;
-		os << "[TAP-MD] Error subscribing to security[" << _securityID << "]";
+		os << "[TAP-MD] Error subscribing to security[" << strContract << "]";
 		this->logger(os.str());
 	}
     else
 	{
-		this->securities->insert(_securityID);
+		this->securities->insert(strContract);
 	}
 
 	lock.unlock();
 }
 
-void TAPMarketDataImpl::unsubscribe(std::string _securityID)
+void TAPMarketDataImpl::unsubscribe(TapAPIContract* contract)
 {
 	boost::mutex::scoped_lock lock(this->subscriptionMutex);
 
+	std::ostringstream os1;
+	os1 << contract->Commodity.CommodityNo << contract->ContractNo1 ;
+	std::string strContract = os1.str();
+
 	std::ostringstream os;
-	os << "[TAP-MD] Unsubscribing from security[" << _securityID << "]";
+	os << "[TAP-MD] Unsubscribing from security[" << strContract << "]";
 	this->logger(os.str());
 
-	TapAPIContract stContract;
-	memset(&stContract, 0, sizeof(stContract));
-	APIStrncpy(stContract.Commodity.ExchangeNo, DEFAULT_EXCHANGE_NO);
-	stContract.Commodity.CommodityType = DEFAULT_COMMODITY_TYPE;
-	APIStrncpy(stContract.Commodity.CommodityNo, DEFAULT_COMMODITY_NO);
-	APIStrncpy(stContract.ContractNo1, DEFAULT_CONTRACT_NO);
-	stContract.CallOrPutFlag1 = TAPI_CALLPUT_FLAG_NONE;
-	stContract.CallOrPutFlag2 = TAPI_CALLPUT_FLAG_NONE;
-	TAPIUINT32 m_uiSessionID = 0;
+	TAPIUINT32 m_uiSessionID = this->getNextRequestID();
     TAPIINT32 iErr = TAPIERROR_SUCCEED;
-	iErr = this->mdApi->UnSubscribeQuote(&m_uiSessionID, &stContract);
+	iErr = this->mdApi->UnSubscribeQuote(&m_uiSessionID, contract);
 	if(TAPIERROR_SUCCEED != iErr) 
 	{
 		std::ostringstream os;
-		os << "[TAP-MD] Error unsubscribing to security[" << _securityID << "]";
+		os << "[TAP-MD] Error unsubscribing to security[" << strContract << "]";
 		this->logger(os.str());
 	}
 	else
 	{
-		this->securities->erase(_securityID);
+		this->securities->erase(strContract);
 	}
 
 	lock.unlock();
@@ -327,33 +317,13 @@ void TAP_CDECL TAPMarketDataImpl::OnRtnContract(const TapAPIQuoteContractInfo *i
 
 void TAP_CDECL TAPMarketDataImpl::OnRspSubscribeQuote(TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPIQuoteWhole *info)
 {
-	// cout << __FUNCTION__ << " is called." << endl;
-	// if (TAPIERROR_SUCCEED == errorCode)
-	// {
-	// 	cout << "行情订阅成功 ";
-	// 	if (NULL != info)
-	// 	{
-	// 		cout << info->DateTimeStamp << " "
-	// 			<< info->Contract.Commodity.ExchangeNo << " "
-	// 			<< info->Contract.Commodity.CommodityType << " "
-	// 			<< info->Contract.Commodity.CommodityNo << " "
-	// 			<< info->Contract.ContractNo1 << " "
-	// 			<< info->QLastPrice
-	// 			// ...		
-	// 			<<endl;
-	// 	}
-
-	// } else{
-	// 	cout << "行情订阅失败，错误码：" << errorCode <<endl;
-	// }
+	std::string instrumentID = getInstrumentIDFromTapQuoteMsg(info);
+	std::ostringstream os;
+	os << "[TAP-MD] Security[" << instrumentID << "] subscription response: " << getErrorString(errorCode);
+	this->logger(os.str());
 
 	if (TAPIERROR_SUCCEED == errorCode)
 	{
-		std::string instrumentID = getInstrumentIDFromTapQuoteMsg(info);
-		std::ostringstream os;
-		os << "[TAP-MD] Security[" << instrumentID << "] subscription response: " << getErrorString(errorCode);
-		this->logger(os.str());
-
 		SecurityDefinition* definition = new SecurityDefinition();
 		std::string secID(instrumentID);
 		if(this->security(secID, this->exdest, definition))
@@ -362,7 +332,7 @@ void TAP_CDECL TAPMarketDataImpl::OnRspSubscribeQuote(TAPIUINT32 sessionID, TAPI
 			if(!contains)
 			{
 				std::ostringstream os;
-				os << "[CTP-MD] Caching security[" << instrumentID<< "]";
+				os << "[TAP-MD] Caching security[" << instrumentID<< "]";
 				this->logger(os.str());
 
 				this->securityCache->emplace(secID, definition);
@@ -373,7 +343,6 @@ void TAP_CDECL TAPMarketDataImpl::OnRspSubscribeQuote(TAPIUINT32 sessionID, TAPI
 			delete(definition);
 		}
 	}
-
 }
 
 void TAP_CDECL TAPMarketDataImpl::OnRspUnSubscribeQuote(TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPIContract *info)
@@ -383,19 +352,20 @@ void TAP_CDECL TAPMarketDataImpl::OnRspUnSubscribeQuote(TAPIUINT32 sessionID, TA
 
 void TAP_CDECL TAPMarketDataImpl::OnRtnQuote(const TapAPIQuoteWhole *info)
 {
-	cout << __FUNCTION__ << " is called." << endl;
-	if (NULL != info)
-	{
-		cout << "行情更新:" 
-			<< info->DateTimeStamp << " "
-			<< info->Contract.Commodity.ExchangeNo << " "
-			<< info->Contract.Commodity.CommodityType << " "
-			<< info->Contract.Commodity.CommodityNo << " "
-			<< info->Contract.ContractNo1 << " "
-			<< info->QLastPrice
-			// ...		
-			<<endl;
-	}
+	TapAPIQuoteWhole *_message = const_cast<TapAPIQuoteWhole *>(info);
+	#if ENABLE_RECORDING == 1
+	std::ostringstream os;
+	os << _depthMarketData->InstrumentID << ',';
+	os << _depthMarketData->BidPrice1 << ',' << _depthMarketData->BidVolume1 << ',';
+	os << _depthMarketData->AskPrice1 << ',' << _depthMarketData->AskVolume1;
+	this->async->out(os.str());
+	#endif
+
+	char data[MSG_BUFFER_SIZE];
+	int msgLen = CoreMessageEncoder::encode(CoreMessageType::MARKET_DATA_MESSAGE, data, this->encBinding, this->fieldPresence, this->fpLength, _message);
+	long addr = (long)data;
+
+	this->callback(addr, msgLen);
 }
 
 void TAPMarketDataImpl::notifyConnectionStatus(bool _connected)
