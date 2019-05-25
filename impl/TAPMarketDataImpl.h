@@ -51,7 +51,7 @@ class TAPMarketDataImpl : public ITapQuoteAPINotify
 		TAPMarketDataImpl(JNIThreadManager*,CallbackFunc,SecurityIDLookupFunc,LoggerFunc);
 		virtual ~TAPMarketDataImpl();
 
-		void configure(std::string, std::string, std::string, std::string, std::string, std::string);
+		void configure(std::string, std::string, std::string, std::string, std::string, std::string, std::string);
 
 		bool connect();
 		void disconnect();
@@ -111,6 +111,7 @@ class TAPMarketDataImpl : public ITapQuoteAPINotify
 		std::string userID;
 		std::string password;
 		std::string exdest;
+		std::string authcode;
 
 		unsigned int reqID;
 

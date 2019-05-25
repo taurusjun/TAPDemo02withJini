@@ -88,7 +88,7 @@ void init_logger()
 	}
 	auto process = []()
 	{
-		std::string name = "ctp-native";
+		std::string name = "tap-native";
 
 		logging = true;
 
@@ -294,6 +294,7 @@ JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024MarketData_register
 		std::string userID = getFieldAsString(_env, _config, "userID");
 		std::string password = getFieldAsString(_env, _config, "password");
 		std::string exdest = getFieldAsString(_env, _config, "exdest");
+		std::string authcode = getFieldAsString(_env, _config, "authcode");
 
 		jclass callback_class = _env->GetObjectClass(_callback);
 		md_callback_method_id = _env->GetMethodID(callback_class, "onCallback", "(JI)V");
@@ -302,7 +303,7 @@ JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024MarketData_register
 
 		init_logger();
 
-		tap_marketdata->configure(address, port, brokerID, userID, password, exdest);
+		tap_marketdata->configure(address, port, brokerID, userID, password, exdest,authcode);
 
 		md_registered = 1;
 

@@ -1,5 +1,4 @@
 #include "TAPMarketDataImpl.h"
-#include "TAPMarketDataConfig.h"
 
 #define NUM_FIELDS                              18
 #define MSG_BUFFER_SIZE                         512
@@ -69,7 +68,7 @@ TAPMarketDataImpl::~TAPMarketDataImpl()
 	delete(this->securityCache);
 }
 
-void TAPMarketDataImpl::configure(std::string _address, std::string _port, std::string _brokerID, std::string _userID, std::string _password, std::string _exdest)
+void TAPMarketDataImpl::configure(std::string _address, std::string _port, std::string _brokerID, std::string _userID, std::string _password, std::string _exdest, std::string _authcode)
 {
 	this->address = _address;
 	this->port = (unsigned short) strtoul(_port.c_str(), NULL, 0);;
@@ -77,6 +76,7 @@ void TAPMarketDataImpl::configure(std::string _address, std::string _port, std::
 	this->userID = _userID;
 	this->password = _password;
 	this->exdest = _exdest;
+	this->authcode=_authcode;
 
 	#if ENABLE_RECORDING == 1
 	auto range = [](int _lower, int _upper, int _cmp)
@@ -109,11 +109,11 @@ bool TAPMarketDataImpl::connect()
 		this->mdApi = 0;
 	}
 
-	this->logger("[TAP-MD] Connecting to CTP MD API...");
+	this->logger("[TAP-MD] Connecting to TAP MD API...");
 
     TAPIINT32 iResult = TAPIERROR_SUCCEED;
     TapAPIApplicationInfo stAppInfo;
-    strcpy(stAppInfo.AuthCode, DEFAULT_AUTHCODE);
+    strcpy(stAppInfo.AuthCode, this->authcode.c_str());
 	strcpy(stAppInfo.KeyOperationLogPath, "log");
 	this->mdApi = CreateTapQuoteAPI(&stAppInfo, iResult);
 	this->mdApi->SetAPINotify(this);
@@ -130,8 +130,7 @@ bool TAPMarketDataImpl::connect()
 
 
 	std::ostringstream os;
-	// os << "date:" << this->mdApi->GetTradingDay() << "\n";
-	// os << "version:" << this->mdApi->GetApiVersion() << "\n";
+	os << "[TAP-MD] QuoteAPI Info: " << GetTapQuoteAPIVersion();
 	this->logger(os.str());
 	if (!rslt)
 	{
@@ -147,7 +146,7 @@ bool TAPMarketDataImpl::connect()
 
 void TAPMarketDataImpl::disconnect()
 {
-	this->logger("[TAP-MD] Disconnecting from CTP MD API...");
+	this->logger("[TAP-MD] Disconnecting from TAP MD API...");
 	this->mdApi->Disconnect();
 	this->mdApi = 0;
 
@@ -156,7 +155,7 @@ void TAPMarketDataImpl::disconnect()
 
 bool TAPMarketDataImpl::login()
 {
-	this->logger("[TAP-MD] Logging in to CTP MD API...");
+	this->logger("[TAP-MD] Logging in to TAP MD API...");
 
 	TapAPIQuoteLoginAuth stLoginAuth;
 	memset(&stLoginAuth, 0, sizeof(stLoginAuth));
@@ -176,9 +175,11 @@ bool TAPMarketDataImpl::login()
 	// //Waiting for APIReady
 	this->m_Event.WaitEvent();
 	if (!this->m_bIsAPIReady){
+		this->logger("[TAP-MD] QuoteAPI not ready, abort!");
 		return false;
 	}
 
+	this->logger("[TAP-MD] QuoteAPI is ready.");
 	return true;
 }
 
@@ -248,14 +249,16 @@ int TAPMarketDataImpl::getNextRequestID()
 void TAP_CDECL TAPMarketDataImpl::OnRspLogin(TAPIINT32 errorCode, const TapAPIQuotLoginRspInfo *info)
 {
 	if(TAPIERROR_SUCCEED == errorCode) {
-		cout << "登录成功，等待API初始化..." << endl;
+		this->logger("[TAP-MD] Login success, waiting for API ready...");
+
 		NativeThreadID id = boost::this_thread::get_id();
 		this->jniThreadManager->registerJNIThreadName(id, "tap-md-callback");
 		this->jniThreadManager->getNativeThreadEnv(id);
 		this->mainCallbackThreadID = id;
+
 		m_bIsAPIReady = true;
 	} else {
-		cout << "登录失败，错误码:" << errorCode << endl;
+		this->logger("[TAP-MD] Login failed!");
 		this->m_Event.SignalEvent();	
 	}
 }
@@ -269,7 +272,18 @@ void TAP_CDECL TAPMarketDataImpl::OnAPIReady()
 
 void TAP_CDECL TAPMarketDataImpl::OnDisconnect(TAPIINT32 reasonCode)
 {
-	cout << "API断开,断开原因:"<<reasonCode << endl;
+	std::ostringstream os;
+	os << "[TAP-MD] Disconnected from TAP MD API: " << reasonCode;
+	this->logger(os.str());
+
+	this->notifyConnectionStatus(false);
+
+	if(!this->jniThreadManager->releaseNativeThreadEnv(this->mainCallbackThreadID))
+	{
+		std::ostringstream os;
+		os << "[TAP-Trader] Error releasing native thread [name=" << this->jniThreadManager->getJNIThreadName(this->mainCallbackThreadID) << "]";
+		this->logger(os.str());
+	}
 }
 
 void TAP_CDECL TAPMarketDataImpl::OnRspChangePassword(TAPIUINT32 sessionID, TAPIINT32 errorCode)
