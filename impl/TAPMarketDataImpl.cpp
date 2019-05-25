@@ -122,7 +122,9 @@ bool TAPMarketDataImpl::connect()
 	bool rslt = true;
 	iErr = this->mdApi->SetHostAddress(this->address.c_str(), this->port);
 	if(TAPIERROR_SUCCEED != iErr) {
-		cout << "SetHostAddress Error:" << iErr <<endl;
+		std::ostringstream os1;
+		os1 << "SetHostAddress Error:" << iErr <<endl;
+		this->logger(os1.str());
 		return false;
 	}else{
         rslt = this->login();
@@ -251,6 +253,7 @@ void TAP_CDECL TAPMarketDataImpl::OnRspLogin(TAPIINT32 errorCode, const TapAPIQu
 	if(TAPIERROR_SUCCEED == errorCode) {
 		this->logger("[TAP-MD] Login success, waiting for API ready...");
 
+		//register current thread as call back thread
 		NativeThreadID id = boost::this_thread::get_id();
 		this->jniThreadManager->registerJNIThreadName(id, "tap-md-callback");
 		this->jniThreadManager->getNativeThreadEnv(id);
@@ -265,7 +268,6 @@ void TAP_CDECL TAPMarketDataImpl::OnRspLogin(TAPIINT32 errorCode, const TapAPIQu
 
 void TAP_CDECL TAPMarketDataImpl::OnAPIReady()
 {
-	cout << "API初始化完成" << endl;
 	this->m_Event.SignalEvent();	
 	this->notifyConnectionStatus(true);
 }

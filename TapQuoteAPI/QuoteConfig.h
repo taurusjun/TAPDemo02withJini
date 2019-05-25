@@ -32,17 +32,17 @@ B30F58A3F211D9C3B3839BE2D73FD08DD776B9188654853DDA57675EBB7D6FBBFC")
 
 //订阅的行情
 ///------------- 日盘 9:00~15:00 -------------
-#define DEFAULT_EXCHANGE_NO		("CFFEX")
-#define DEFAULT_COMMODITY_TYPE	(TAPI_COMMODITY_TYPE_FUTURES)
-#define DEFAULT_COMMODITY_NO	("IF")
-#define DEFAULT_CONTRACT_NO		("1906")
+// #define DEFAULT_EXCHANGE_NO		("CFFEX")
+// #define DEFAULT_COMMODITY_TYPE	(TAPI_COMMODITY_TYPE_FUTURES)
+// #define DEFAULT_COMMODITY_NO	("IF")
+// #define DEFAULT_CONTRACT_NO		("1906")
 ///-------------------------------
 
 ///------------- 夜盘 21:00~1:00 -------------
-// #define DEFAULT_EXCHANGE_NO		("SHFE")
-// #define DEFAULT_COMMODITY_TYPE	(TAPI_COMMODITY_TYPE_FUTURES)
-// #define DEFAULT_COMMODITY_NO	("AU")
-// #define DEFAULT_CONTRACT_NO		("1908")
+#define DEFAULT_EXCHANGE_NO		("SHFE")
+#define DEFAULT_COMMODITY_TYPE	(TAPI_COMMODITY_TYPE_FUTURES)
+#define DEFAULT_COMMODITY_NO	("AU")
+#define DEFAULT_CONTRACT_NO		("1908")
 ///-------------------------------
 
 template<size_t size> inline void APIStrncpy(char (&Dst)[size], const char* source)
