@@ -78,7 +78,7 @@
         },
         {
             "type": "shell",
-            "label": "libTAPMD build",
+            "label": "libTAPMD build - Debug version",
             "command": "/usr/bin/g++",
             "args": [
                 "-std=c++11",
@@ -114,6 +114,40 @@
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "type": "shell",
+            "label": "libTAPMD build - Release version",
+            "command": "/usr/bin/g++",
+            "args": [
+                "-std=c++11",
+                "impl/TAPMarketDataImpl.cpp",
+                "impl/TAPSimpleEvent.cpp",
+                "jni/native_tap.cpp",
+                "-fPIC",
+                "-shared",
+                "-o",
+                "dst/libTAPMD.so",
+                "-I${workspaceFolder}/api/include",
+                "-I${workspaceFolder}/impl",
+                "-I${workspaceFolder}/jni",
+                "-I/usr/local/include/unlib",
+                "-I/usr/java/jdk1.8.0_192-amd64/include/linux",
+                "-I/usr/java/jdk1.8.0_192-amd64/include",
+                "-L/usr/local/lib",
+                "-L/usr/local/unown",
+                "-L${workspaceFolder}/api/lib",
+                "-lboost_thread",
+                "-lboost_locale",
+                "-lboost_system",
+                "-lpthread",
+                "-lunlib",
+                "-lTapTradeAPI",
+                "-lTapQuoteAPI"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ]
         }
      ]
 }
