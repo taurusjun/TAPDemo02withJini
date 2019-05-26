@@ -21,7 +21,7 @@ extern "C" {
 /*
  * Class:     com_unown_tap_jni_NativeTAP_MarketData
  * Method:    register
- * Signature: (Lcom/unown/ctp/jni/NativeCallback;Lcom/unown/tap/jni/NativeTAP/MarketData/Configuration;)V
+ * Signature: (Lcom/unown/tap/jni/NativeCallback;Lcom/unown/tap/jni/NativeTAP/MarketData/Configuration;)V
  */
 JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024MarketData_register
   (JNIEnv *, jobject, jobject, jobject);
@@ -102,7 +102,7 @@ extern "C" {
 /*
  * Class:     com_unown_tap_jni_NativeTAP_OrderEntry
  * Method:    register
- * Signature: (Lcom/unown/ctp/jni/NativeCallback;Lcom/unown/tap/jni/NativeTAP/OrderEntry/Configuration;)V
+ * Signature: (Lcom/unown/tap/jni/NativeCallback;Lcom/unown/tap/jni/NativeTAP/OrderEntry/Configuration;)V
  */
 JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024OrderEntry_register
   (JNIEnv *, jobject, jobject, jobject);

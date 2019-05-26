@@ -202,7 +202,7 @@ void TAPMarketDataImpl::subscribe(TapAPIContract* contract)
 	iErr = this->mdApi->SubscribeQuote(&m_uiSessionID, contract);
 	if(TAPIERROR_SUCCEED != iErr) {
 		std::ostringstream os;
-		os << "[TAP-MD] Error subscribing to security[" << strContract << "]";
+		os << "[TAP-MD] Error subscribing to security[" << strContract << "]" << " ErrorCode: "<< iErr;
 		this->logger(os.str());
 	}
     else
@@ -368,7 +368,6 @@ void TAP_CDECL TAPMarketDataImpl::OnRspUnSubscribeQuote(TAPIUINT32 sessionID, TA
 
 void TAP_CDECL TAPMarketDataImpl::OnRtnQuote(const TapAPIQuoteWhole *info)
 {
-	TapAPIQuoteWhole *_message = const_cast<TapAPIQuoteWhole *>(info);
 	#if ENABLE_RECORDING == 1
 	std::ostringstream os;
 	os << _depthMarketData->InstrumentID << ',';
@@ -377,6 +376,7 @@ void TAP_CDECL TAPMarketDataImpl::OnRtnQuote(const TapAPIQuoteWhole *info)
 	this->async->out(os.str());
 	#endif
 
+	TapAPIQuoteWhole *_message = const_cast<TapAPIQuoteWhole *>(info);
 	char data[MSG_BUFFER_SIZE];
 	int msgLen = CoreMessageEncoder::encode(CoreMessageType::MARKET_DATA_MESSAGE, data, this->encBinding, this->fieldPresence, this->fpLength, _message);
 	long addr = (long)data;

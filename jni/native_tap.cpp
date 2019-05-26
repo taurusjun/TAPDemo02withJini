@@ -168,7 +168,7 @@ bool retrieve_security_by_id_exdest(std::string _secID, std::string _exdest, Sec
 	jstring exdestination = environment->NewStringUTF(_exdest.c_str());
 	_bucket->securityID = _secID;
 
-	jclass moduleClass = environment->FindClass("com/unown/ctp/jni/NativeCTP");
+	jclass moduleClass = environment->FindClass("com/unown/tap/jni/NativeTAP");
 	jmethodID securityMethod = environment->GetStaticMethodID(moduleClass, "getSecurityDefinition", "(Ljava/lang/String;Ljava/lang/String;)Lcom/unown/core/commons/types/instrument/SecurityDefinition;");
 	jobject securityDefinition = environment->CallStaticObjectMethod(moduleClass, securityMethod, securityID, exdestination);
 
@@ -194,7 +194,7 @@ bool retrieve_security_by_shortname(std::string _shortname, SecurityDefinition* 
 	jstring shortname = environment->NewStringUTF(_shortname.c_str());
 	_bucket->shortname = _shortname;
 
-	jclass moduleClass = environment->FindClass("com/unown/ctp/jni/NativeCTP");
+	jclass moduleClass = environment->FindClass("com/unown/tap/jni/NativeTAP");
 	jmethodID securityMethod = environment->GetStaticMethodID(moduleClass, "getSecurityDefinition", "(Ljava/lang/String;)Lcom/unown/core/commons/types/instrument/SecurityDefinition;");
 	jobject securityDefinition = environment->CallStaticObjectMethod(moduleClass, securityMethod, shortname);
 
