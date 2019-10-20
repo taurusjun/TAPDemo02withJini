@@ -37,6 +37,7 @@
 #include <boost/locale.hpp>
 #include <boost/algorithm/string.hpp>
 
+using namespace std;
 typedef std::string Shortname;
 typedef std::string SecurityID;
 
@@ -102,7 +103,7 @@ struct TAPReplaceCompletion
 class SecurityCache
 {
 	public:
-		virtual ~SecurityCache() = 0;
+		virtual ~SecurityCache() {};
 
 		virtual bool getSecurityDefinitionBySecurityID(std::string,SecurityDefinition*&) = 0;
 		virtual bool getSecurityDefinitionByShortname(std::string,SecurityDefinition*&) = 0;
@@ -457,7 +458,10 @@ class TAPOrderMessageEncoderBinding : public EncoderBinding<TAPOrderUpdate>
 				case ByteField::Identifier::ID_PRICE_EXPONENT:
 				{
 					SecurityDefinition* definition = 0;
-					this->securityCache->getSecurityDefinitionBySecurityID(getInstrumentIDFromCommodityNoAndContractNo(_message->tradeUpdate->CommodityNo,_message->tradeUpdate->ContractNo), definition);
+					string c1=_message->tradeUpdate->CommodityNo;
+					string c2=_message->tradeUpdate->ContractNo;
+					string instrumentID=c1+c2;
+					this->securityCache->getSecurityDefinitionBySecurityID(instrumentID, definition);
 					return definition->pxExponent;
 				}
 				default:
@@ -474,7 +478,10 @@ class TAPOrderMessageEncoderBinding : public EncoderBinding<TAPOrderUpdate>
 				case ByteField::Identifier::ID_ORDER_FILL_PRICE:
 				{
 					SecurityDefinition* definition = 0;
-					this->securityCache->getSecurityDefinitionBySecurityID(getInstrumentIDFromCommodityNoAndContractNo(_message->tradeUpdate->CommodityNo,_message->tradeUpdate->ContractNo), definition);
+					string c1=_message->tradeUpdate->CommodityNo;
+					string c2=_message->tradeUpdate->ContractNo;
+					string instrumentID=c1+c2;
+					this->securityCache->getSecurityDefinitionBySecurityID(instrumentID, definition);
 					return getMantissa(_message->tradeUpdate->MatchPrice, definition->pxExponent);
 				}
 				default:
@@ -500,7 +507,10 @@ class TAPOrderMessageEncoderBinding : public EncoderBinding<TAPOrderUpdate>
 				case ByteField::Identifier::ID_SHORTNAME:
 				{
 					SecurityDefinition* definition = 0;
-					this->securityCache->getSecurityDefinitionBySecurityID(getInstrumentIDFromCommodityNoAndContractNo(_message->tradeUpdate->CommodityNo,_message->tradeUpdate->ContractNo), definition);
+					string c1=_message->tradeUpdate->CommodityNo;
+					string c2=_message->tradeUpdate->ContractNo;
+					string instrumentID=c1+c2;
+					this->securityCache->getSecurityDefinitionBySecurityID(instrumentID, definition);
 					return definition->shortname;
 				}
 				case ByteField::Identifier::ID_ORDER_REJECT_REASON:
@@ -527,13 +537,6 @@ class TAPOrderMessageEncoderBinding : public EncoderBinding<TAPOrderUpdate>
 			return (long)round(_raw * pow(10, _exponent));
 		}
 };
-
-inline
-static std::string getInstrumentIDFromCommodityNoAndContractNo(const TAPISTR_10 _commodityNo,const TAPISTR_10 _contractNo){
-	std::ostringstream os;
-	os << _commodityNo << _contractNo;
-	return os.str();
-}
 
 class TAPOrderMessageDecoderBinding : public DecoderBinding<TAPOrderRequest>
 {
@@ -702,10 +705,10 @@ class TAPOrderMessageDecoderBinding : public DecoderBinding<TAPOrderRequest>
 				}
 			}
 		}
+
 	private:
 		SecurityCache* securityCache;
 		boost::unordered_set<Shortname>* arbitrageProducts;
 };
 
 #endif /* TAPORDERENTRYIMPL_H */
-

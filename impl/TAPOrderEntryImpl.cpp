@@ -197,7 +197,7 @@ bool TAPOrderEntryImpl::connect()
 		iErr = this->traderApi->QryPosition(&m_uiSessionID,&stQryPosReq);
 		if(TAPIERROR_SUCCEED != iErr) {
 			cout << "QryPosition Error:" << iErr <<endl;
-			return;
+			return false;
 		}
 		// CThostFtdcQryInvestorPositionField position;
 		// strcpy(position.BrokerID, this->brokerID.c_str());
@@ -348,7 +348,7 @@ void TAPOrderEntryImpl::loadSecurityCache(std::string _cacheFilePath)
 
 			securityID = strs[2]+strs[3];
 			(*this->contractCacheBySecurityID)[securityID]=contractDef;
-			if(strs.size>4 && strs[4].compare("A")==0){
+			if(strs.size()>4 && strs[4].compare("A")==0){
 					isArb = true;
 			}
 
@@ -699,7 +699,9 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspQryPosition( TAPIUINT32 sessionID, TAPIIN
 	//TODO: 是否直接计算总持仓？
 	else if(info->IsHistory == APIYNFLAG_YES)
 	{	
-		string instrumentID=getInstrumentIDFromCommodityNoAndContractNo(info->CommodityNo,info->ContractNo);
+		string c1=info->CommodityNo;
+		string c2=info->ContractNo;
+		string instrumentID=c1+c2;
 		os << "[TAP-TRADE] Received historical position [securityID=" << instrumentID << "][date=" << info->MatchDate << "]";
 		switch(info->MatchSide)
 		{
@@ -726,7 +728,9 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspQryPosition( TAPIUINT32 sessionID, TAPIIN
 	//TODO: 是否直接计算总持仓？
 	else if(info->IsHistory == APIYNFLAG_NO)
 	{
-		string instrumentID=getInstrumentIDFromCommodityNoAndContractNo(info->CommodityNo,info->ContractNo);
+		string c1=info->CommodityNo;
+		string c2=info->ContractNo;
+		string instrumentID=c1+c2;
 		os << "[TAP-TRADE] Received current day position [securityID=" << instrumentID << "][date=" << info->MatchDate << "]";
 		switch(info->MatchSide)
 		{
@@ -1286,6 +1290,102 @@ void TAPOrderEntryImpl::OnOrderCancelError( const TapAPIOrderInfoNotice *info ){
 // 		}
 // 	}
 // }
+
+//------------------unimplemented functions ---------------
+void TAP_CDECL TAPOrderEntryImpl::OnConnect()
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspChangePassword(TAPIUINT32 sessionID, TAPIINT32 errorCode)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspSetReservedInfo(TAPIUINT32 sessionID, TAPIINT32 errorCode, const TAPISTR_50 info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspQryAccount(TAPIUINT32 sessionID, TAPIUINT32 errorCode, TAPIYNFLAG isLast, const TapAPIAccountInfo *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRtnFund(const TapAPIFundData *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspQryExchange(TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPIExchangeInfo *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspQryCommodity(TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPICommodityInfo *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspQryContract(TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPITradeContractInfo *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRtnContract(const TapAPITradeContractInfo *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspOrderAction(TAPIUINT32 sessionID, TAPIUINT32 errorCode, const TapAPIOrderActionRsp *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspQryOrder(TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPIOrderInfo *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspQryOrderProcess(TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPIOrderInfo *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspQryFill(TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPIFillInfo *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRtnPosition(const TapAPIPositionInfo *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspQryClose(TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPICloseInfo *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRtnClose(const TapAPICloseInfo *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRtnPositionProfit(const TapAPIPositionProfitNotice *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspQryDeepQuote(TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPIDeepQuoteQryRsp *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspQryExchangeStateInfo(TAPIUINT32 sessionID,TAPIINT32 errorCode, TAPIYNFLAG isLast,const TapAPIExchangeStateInfo * info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRtnExchangeStateInfo(const TapAPIExchangeStateInfoNotice * info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRtnReqQuoteNotice(const TapAPIReqQuoteNotice *info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspUpperChannelInfo(TAPIUINT32 sessionID,TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPIUpperChannelInfo * info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+void TAP_CDECL TAPOrderEntryImpl::OnRspAccountRentInfo(TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPIAccountRentInfo * info)
+{
+	cout << __FUNCTION__ << " is called." << endl;
+}
+//---------------------------------------------------------
+
 
 void TAPOrderEntryImpl::ackNew(unsigned int _refID)
 {
