@@ -93,6 +93,28 @@
                     "ignoreFailures": true
                 }
             ]
+        },
+        {
+            "name": "main test (gdb) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/dst/maintest.out",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [                {
+                "name": "LD_LIBRARY_PATH",
+                "value": "$LD_LIBRARY_PATH:./api/lib:/usr/local/lib:/usr/local/unown"
+            }],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
         }
     ]
 }

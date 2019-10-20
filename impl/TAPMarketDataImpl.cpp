@@ -283,7 +283,7 @@ void TAP_CDECL TAPMarketDataImpl::OnDisconnect(TAPIINT32 reasonCode)
 	if(!this->jniThreadManager->releaseNativeThreadEnv(this->mainCallbackThreadID))
 	{
 		std::ostringstream os;
-		os << "[TAP-Trader] Error releasing native thread [name=" << this->jniThreadManager->getJNIThreadName(this->mainCallbackThreadID) << "]";
+		os << "[TAP-MD] Error releasing native thread [name=" << this->jniThreadManager->getJNIThreadName(this->mainCallbackThreadID) << "]";
 		this->logger(os.str());
 	}
 }
