@@ -7,6 +7,7 @@
 #include "native_tap.h"
 #include "jni/JNIThreadManager.h"
 #include "TAPMarketDataImpl.h"
+#include "TAPOrderEntryImpl.h"
 #include "collections/ConcurrentQueue.hpp"
 
 #include <iostream>
@@ -28,7 +29,7 @@ static const char* LEVEL_SIGNATURE = "Lorg/apache/logging/log4j/Level;";
 JNIThreadManager* threadManager;
 
 TAPMarketDataImpl* tap_marketdata;
-// CTPOrderEntryImpl* ctp_orderentry;
+TAPOrderEntryImpl* tap_orderentry;
 
 jmethodID md_callback_method_id;
 jmethodID order_callback_method_id;
@@ -209,51 +210,53 @@ bool retrieve_security_by_shortname(std::string _shortname, SecurityDefinition* 
 	return success;
 }
 
-// JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024OrderEntry_register(JNIEnv* _env, jobject _this, jobject _callback, jobject _config)
-// {
-// 	boost::mutex::scoped_lock lock(registration_mutex);
+JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024OrderEntry_register(JNIEnv* _env, jobject _this, jobject _callback, jobject _config)
+{
+	boost::mutex::scoped_lock lock(registration_mutex);
 
-// 	if(!order_registered)
-// 	{
-// 		jint rs = _env->GetJavaVM(&jvm);
-// 		assert (rs == JNI_OK);
+	if(!order_registered)
+	{
+		jint rs = _env->GetJavaVM(&jvm);
+		assert (rs == JNI_OK);
 
-// 		threadManager = new JNIThreadManager(jvm);
-// 		JavaThreadID threadID = boost::this_thread::get_id();
-// 		threadManager->cacheJavaThreadEnv(threadID, _env);
+		threadManager = new JNIThreadManager(jvm);
+		JavaThreadID threadID = boost::this_thread::get_id();
+		threadManager->cacheJavaThreadEnv(threadID, _env);
 
-// 		ctp_orderentry = new CTPOrderEntryImpl(threadManager, &order_callback, &retrieve_security_by_id_exdest, &retrieve_security_by_shortname, &log_main);
+		tap_orderentry = new TAPOrderEntryImpl(threadManager, &order_callback, &retrieve_security_by_id_exdest, &retrieve_security_by_shortname, &log_main);
 
-// 		std::string address = getFieldAsString(_env, _config, "address");
-// 		std::string brokerID = getFieldAsString(_env, _config, "brokerID");
-// 		std::string userID = getFieldAsString(_env, _config, "userID");
-// 		std::string password = getFieldAsString(_env, _config, "password");
-// 		std::string exdest = getFieldAsString(_env, _config, "exdest");
+		std::string address = getFieldAsString(_env, _config, "address");
+		std::string port = getFieldAsString(_env, _config, "port");
+		std::string brokerID = getFieldAsString(_env, _config, "brokerID");
+		std::string userID = getFieldAsString(_env, _config, "userID");
+		std::string password = getFieldAsString(_env, _config, "password");
+		std::string exdest = getFieldAsString(_env, _config, "exdest");
+		std::string authcode = getFieldAsString(_env, _config, "authcode");
 
-// 		jclass callback_class = _env->GetObjectClass(_callback);
-// 		order_callback_method_id = _env->GetMethodID(callback_class, "onCallback", "(JI)V");
+		jclass callback_class = _env->GetObjectClass(_callback);
+		order_callback_method_id = _env->GetMethodID(callback_class, "onCallback", "(JI)V");
 
-// 		order_callbackObj = _env->NewGlobalRef(_callback);
+		order_callbackObj = _env->NewGlobalRef(_callback);
 
-// 		init_logger();
+		init_logger();
 
-// 		ctp_orderentry->configure(address, brokerID, userID, password, exdest);
+		tap_orderentry->configure(address, port, brokerID, userID, password, exdest,authcode);
 
-// 		order_registered = 1;
+		order_registered = 1;
 
-// 		threadManager->releaseJavaThreadEnv(threadID);
-// 	}
-// }
+		threadManager->releaseJavaThreadEnv(threadID);
+	}
+}
 
 // JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024OrderEntry_deregister(JNIEnv* _env, jobject _this)
 // {
 // 	destroy_logger();
 // }
 
-// JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024OrderEntry_connect(JNIEnv* _env, jobject _this)
-// {
-// 	ctp_orderentry->connect();
-// }
+JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024OrderEntry_connect(JNIEnv* _env, jobject _this)
+{
+	tap_orderentry->connect();
+}
 
 // JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024OrderEntry_disconnect(JNIEnv* _env, jobject _this)
 // {

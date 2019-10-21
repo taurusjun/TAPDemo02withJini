@@ -7,6 +7,15 @@
 
 using namespace std;
 
+#define DEFAULT_AUTHCODE	("67EA896065459BECDFDB924B29CB7DF1946CED\
+32E26C1EAC946CED32E26C1EAC946CED32E26C1EAC946CED32E26C1EAC5211AF9FEE\
+541DDE41BCBAB68D525B0D111A0884D847D57163FF7F329FA574E7946CED32E26C1E\
+AC946CED32E26C1EAC733827B0CE853869ABD9B8F170E14F8847D3EA0BF4E191F5D9\
+7B3DFE4CCB1F01842DD2B3EA2F4B20CAD19B8347719B7E20EA1FA7A3D1BFEFF22290\
+F4B5C43E6C520ED5A40EC1D50ACDF342F46A92CCF87AEE6D73542C42EC17818349C7\
+DEDAB0E4DB16977714F873D505029E27B3D57EB92D5BEDA0A710197EB67F94BB1892\
+B30F58A3F211D9C3B3839BE2D73FD08DD776B9188654853DDA57675EBB7D6FBBFC")
+
 //--------------------------------------------------------
 static const char* STRING_SIGNATURE = "Ljava/lang/String;";
 static const char* LEVEL_SIGNATURE = "Lorg/apache/logging/log4j/Level;";
@@ -141,9 +150,16 @@ void order_callback(long _addr, int _length)
 }
 
 inline
+void order_callback_mock(long _addr, int _length)
+{
+	cout << "call back called: " << "[addr=" << _addr << "],[length="<<_length<<"]"<<endl;
+}
+
+inline
 void log_main(std::string _line)
 {
 	loggingQueue.push(_line);
+	cout << _line <<endl;
 }
 
 inline
@@ -173,6 +189,18 @@ bool retrieve_security_by_id_exdest(std::string _secID, std::string _exdest, Sec
 }
 
 inline
+bool retrieve_security_by_id_exdest_mock(std::string _secID, std::string _exdest, SecurityDefinition* _bucket)
+{
+	_bucket->securityID = _secID;
+
+
+  _bucket->shortname = "mockname";
+  _bucket->pxExponent = 1;
+
+	return true;
+}
+
+inline
 bool retrieve_security_by_shortname(std::string _shortname, SecurityDefinition* _bucket)
 {
 	JNIEnv* environment = threadManager->getEnv(boost::this_thread::get_id());
@@ -194,11 +222,25 @@ bool retrieve_security_by_shortname(std::string _shortname, SecurityDefinition* 
 	environment->DeleteLocalRef(shortname); //due to being called by native thread
 	return success;
 }
+
+inline
+bool retrieve_security_by_shortname_mock(std::string _shortname, SecurityDefinition* _bucket)
+{
+	_bucket->shortname = _shortname;
+	_bucket->securityID = "IF1901";
+	_bucket->pxExponent = 1;
+
+	return true;
+}
+
 ////--------------------------------------------------------------------------------------
 
 int main()
 {
   cout <<"-------- main test --------" << endl;
+//   TAPISTR_10 test1="001";
+//   string c2=test1;
+//   cout << c2 <<endl;
   // string line = "CFFEX:F:IF:1910:A"; 
   // std::vector<std::string> strs;
   // boost::split(strs, line, boost::is_any_of(":"));
@@ -213,7 +255,9 @@ int main()
 
   threadManager = new JNIThreadManager(jvm);
   JavaThreadID threadID = boost::this_thread::get_id();
- 	tap_orderentry = new TAPOrderEntryImpl(threadManager, &order_callback, &retrieve_security_by_id_exdest, &retrieve_security_by_shortname, &log_main);
+  tap_orderentry = new TAPOrderEntryImpl(threadManager, &order_callback_mock, &retrieve_security_by_id_exdest_mock, &retrieve_security_by_shortname_mock, &log_main);
+  tap_orderentry->configure("123.161.206.213","6060","","Q48753284","335236","",DEFAULT_AUTHCODE);
+  tap_orderentry->connect();
 
 
   return 0;

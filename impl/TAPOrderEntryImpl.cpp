@@ -9,6 +9,7 @@
 #define MSG_BUFFER_SIZE 					512
 
 using namespace std;
+using namespace boost;
 TAPOrderEntryImpl::TAPOrderEntryImpl(JNIThreadManager* _manager, CallbackFunc _callbackFunc, SecurityIDLookupFunc _securityFuncByID, ShortnameLookupFunc _securityFuncByShortname, LoggerFunc _loggerFunc)
 {
 	this->jniThreadManager = _manager;
@@ -122,7 +123,7 @@ void TAPOrderEntryImpl::configure(std::string _address, std::string _port, std::
 	this->exdest = _exdest;
 	this->authcode=_authcode;
 
-	this->loadSecurityCache("conf/TAP/ctp-security-cache.txt");
+	this->loadSecurityCache("conf/TAP/tap-security-cache.txt");
 }
 
 bool TAPOrderEntryImpl::connect()
@@ -163,7 +164,7 @@ bool TAPOrderEntryImpl::connect()
 	}
 
 	std::ostringstream os;
-	os << "[TAP-MD] TradeAPI Info: " << GetTapTradeAPIVersion();
+	os << "[TAP-MD] TradeAPI Info: " << GetTapTradeAPIVersion() << endl;
 	this->logger(os.str());
 	if (!rslt)
 	{
@@ -182,31 +183,53 @@ bool TAPOrderEntryImpl::connect()
 	//TODO replace this with a latch
 	boost::this_thread::sleep(boost::posix_time::milliseconds(5000));
 
-	//TODO: 查询单个合约的持仓，似乎没有对应的API
-	for(auto iter = this->securityCacheBySecurityID->begin(); iter != this->securityCacheBySecurityID->end(); ++iter)
-	{
-		std::string securityID = iter->first;
+	//没有单个合约的持仓查询，使用了qryPosition接口
+	TAPIUINT32 m_uiSessionID = this->getNextRequestID();
+	std::ostringstream os2;
+	os2 << "[TAP-TRADE] Retrieving position [reqID=" << reqID << "] begin";
+	this->logger(os2.str());
 
-		TAPIUINT32 m_uiSessionID = this->getNextRequestID();
-		std::ostringstream os;
-		os << "[TAP-TRADE] Retrieving position [securityID=" << securityID << "][reqID=" << reqID << "]";
+	TapAPIPositionQryReq stQryPosReq;
+	memset(&stQryPosReq, 0, sizeof(stQryPosReq));
+	iErr = this->traderApi->QryPosition(&m_uiSessionID,&stQryPosReq);
+	if(TAPIERROR_SUCCEED != iErr) {
+		os << "QryPosition Error:" << iErr <<endl;
 		this->logger(os.str());
-
-		TapAPIPositionQryReq stQryPosReq;
-		memset(&stQryPosReq, 0, sizeof(stQryPosReq));
-		iErr = this->traderApi->QryPosition(&m_uiSessionID,&stQryPosReq);
-		if(TAPIERROR_SUCCEED != iErr) {
-			cout << "QryPosition Error:" << iErr <<endl;
-			return false;
-		}
-		// CThostFtdcQryInvestorPositionField position;
-		// strcpy(position.BrokerID, this->brokerID.c_str());
-		// strcpy(position.InvestorID, this->userID.c_str());
-		// strcpy(position.InstrumentID, securityID.c_str());
-		// this->traderApi->ReqQryInvestorPosition(&position, reqID);
-
-		boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+		return false;
 	}
+	//TODO: 是否使用事件等待返回？
+	// boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+	this->m_Event.WaitEvent();
+	std::ostringstream os3;
+	os3 << "[TAP-TRADE] Retrieving position [reqID=" << reqID << "] success!";
+	this->logger(os3.str());
+	
+	return true;
+	//TODO: 查询单个合约的持仓，似乎没有对应的API
+	// for(auto iter = this->securityCacheBySecurityID->begin(); iter != this->securityCacheBySecurityID->end(); ++iter)
+	// {
+	// 	std::string securityID = iter->first;
+
+	// 	TAPIUINT32 m_uiSessionID = this->getNextRequestID();
+	// 	std::ostringstream os;
+	// 	os << "[TAP-TRADE] Retrieving position [securityID=" << securityID << "][reqID=" << reqID << "]";
+	// 	this->logger(os.str());
+
+	// 	TapAPIPositionQryReq stQryPosReq;
+	// 	memset(&stQryPosReq, 0, sizeof(stQryPosReq));
+	// 	iErr = this->traderApi->QryPosition(&m_uiSessionID,&stQryPosReq);
+	// 	if(TAPIERROR_SUCCEED != iErr) {
+	// 		cout << "QryPosition Error:" << iErr <<endl;
+	// 		return false;
+	// 	}
+	// 	// CThostFtdcQryInvestorPositionField position;
+	// 	// strcpy(position.BrokerID, this->brokerID.c_str());
+	// 	// strcpy(position.InvestorID, this->userID.c_str());
+	// 	// strcpy(position.InstrumentID, securityID.c_str());
+	// 	// this->traderApi->ReqQryInvestorPosition(&position, reqID);
+
+	// 	boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+	// }
 }
 
 void TAPOrderEntryImpl::disconnect()
@@ -278,13 +301,16 @@ void TAPOrderEntryImpl::retrievePositions()
 
 void TAPOrderEntryImpl::resetPosition(std::string _securityID, const Side* _side, const PositionType* _type, int _size)
 {
-	StatisticsMessage update;
-	update.statisticsAction = StatisticsAction::POSITION_RESET;
-	update.shortname = (*this->securityCacheBySecurityID)[_securityID]->shortname;
-	update.positionSide = _side;
-	update.positionType = _type;
-	update.positionSize = _size;
-	this->updatePosition(&update);
+	if(CollectionsHelper::containsKey(this->securityCacheBySecurityID, _securityID))
+	{
+		StatisticsMessage update;
+		update.statisticsAction = StatisticsAction::POSITION_RESET;	
+		update.shortname = (*this->securityCacheBySecurityID)[_securityID]->shortname;
+		update.positionSide = _side;
+		update.positionType = _type;
+		update.positionSize = _size;
+		this->updatePosition(&update);
+	}	
 }
 
 void TAPOrderEntryImpl::retrieveAccountDetails()
@@ -321,11 +347,20 @@ void TAPOrderEntryImpl::notifyConnectionStatus(bool _connected)
 void TAPOrderEntryImpl::loadSecurityCache(std::string _cacheFilePath)
 {
 	boost::mutex::scoped_lock lock(this->securityCacheFileMutex);
+
+	boost::filesystem::path full_path(boost::filesystem::current_path());
+	std::ostringstream os0;
+	os0 << "Current dir is: "<< full_path<< endl;;
+	this->logger(os0.str());
+
 	std::ifstream securityCacheFile;
 	securityCacheFile.open(_cacheFilePath);
 
 	if(!securityCacheFile.good())
 	{
+		std::ostringstream os;
+		os << "File "<< _cacheFilePath << " not exist" << endl;;
+		this->logger(os.str());
 		return;
 	}
 
@@ -544,11 +579,13 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspLogin( TAPIINT32 errorCode, const TapAPIT
 
 		//register current thread as call back thread
 		NativeThreadID id = boost::this_thread::get_id();
-		this->jniThreadManager->registerJNIThreadName(id, "tap-trade-callback");
-		this->jniThreadManager->getNativeThreadEnv(id);
+		//TEST Only -- begin
+		// this->jniThreadManager->registerJNIThreadName(id, "tap-trade-callback");
+		// this->jniThreadManager->getNativeThreadEnv(id);
+		//TEST Only -- end
 		this->mainCallbackThreadID = id;
 
-		m_bIsAPIReady = true;
+		// m_bIsAPIReady = true;
 	} else {
 		this->logger("[TAP-TRADE] Login failed!");
 		this->m_Event.SignalEvent();	
@@ -565,6 +602,7 @@ void TAP_CDECL TAPOrderEntryImpl::OnAPIReady()
 	this->retrievePositions();
 	this->retrieveAccountDetails();
 
+	m_bIsAPIReady = true;
 	this->m_Event.SignalEvent();	
 	this->notifyConnectionStatus(true);
 }
@@ -697,61 +735,72 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspQryPosition( TAPIUINT32 sessionID, TAPIIN
 	}
 	//History
 	//TODO: 是否直接计算总持仓？
-	else if(info->IsHistory == APIYNFLAG_YES)
-	{	
-		string c1=info->CommodityNo;
-		string c2=info->ContractNo;
-		string instrumentID=c1+c2;
-		os << "[TAP-TRADE] Received historical position [securityID=" << instrumentID << "][date=" << info->MatchDate << "]";
-		switch(info->MatchSide)
-		{
-			case TAPI_SIDE_BUY:
-			{
-				os << "[side=buy][PositionNo=" << info->PositionNo << "][overnight=" << info->PositionQty << "][price=" << info->PositionPrice << "]";
-				this->resetPosition(instrumentID, Side::BUY, PositionType::OPEN_OVERNIGHT, info->PositionQty);
-				break;
-			}
-			case TAPI_SIDE_SELL:
-			{
-				os << "[side=sell][PositionNo=" << info->PositionNo << "][today=" << info->PositionQty << "][price=" << info->PositionPrice << "]";
-				this->resetPosition(instrumentID, Side::SELL, PositionType::OPEN_OVERNIGHT, info->PositionQty);
-				break;
-			}
-			default:
-			{
-				break;
-			}
-		}
-		this->logger(os.str());
-	}
-	//Today
-	//TODO: 是否直接计算总持仓？
-	else if(info->IsHistory == APIYNFLAG_NO)
+	else 
 	{
-		string c1=info->CommodityNo;
-		string c2=info->ContractNo;
-		string instrumentID=c1+c2;
-		os << "[TAP-TRADE] Received current day position [securityID=" << instrumentID << "][date=" << info->MatchDate << "]";
-		switch(info->MatchSide)
-		{
-			case TAPI_SIDE_BUY:
+		if(info->IsHistory == APIYNFLAG_YES)
+		{	
+			string c1=info->CommodityNo;
+			string c2=info->ContractNo;
+			string instrumentID=c1+c2;
+			os << "[TAP-TRADE] Received historical position [securityID=" << instrumentID << "][date=" << info->MatchDate << "]";
+			switch(info->MatchSide)
 			{
-				os << "[side=buy][PositionNo=" << info->PositionNo << "][today=" << info->PositionQty << "][price=" << info->PositionPrice << "]";
-				this->resetPosition(instrumentID, Side::BUY, PositionType::OPEN_TODAY, info->PositionQty);
-				break;
+				case TAPI_SIDE_BUY:
+				{
+					os << "[side=buy][PositionNo=" << info->PositionNo << "][overnight=" << info->PositionQty << "][price=" << info->PositionPrice << "]";
+					this->resetPosition(instrumentID, Side::BUY, PositionType::OPEN_OVERNIGHT, info->PositionQty);
+					break;
+				}
+				case TAPI_SIDE_SELL:
+				{
+					os << "[side=sell][PositionNo=" << info->PositionNo << "][overnight=" << info->PositionQty << "][price=" << info->PositionPrice << "]";
+					this->resetPosition(instrumentID, Side::SELL, PositionType::OPEN_OVERNIGHT, info->PositionQty);
+					break;
+				}
+				default:
+				{
+					break;
+				}
 			}
-			case TAPI_SIDE_SELL:
-			{
-				os << "[side=sell][PositionNo=" << info->PositionNo << "][today=" << info->PositionQty << "][price=" << info->PositionPrice << "]";
-				this->resetPosition(instrumentID, Side::SELL, PositionType::OPEN_TODAY, info->PositionQty);
-				break;
-			}
-			case TAPI_SIDE_NONE:
-			default:
-			{
-			}
+			this->logger(os.str());
 		}
-		this->logger(os.str());
+		//Today
+		//TODO: 是否直接计算总持仓？
+		else if(info->IsHistory == APIYNFLAG_NO)
+		{
+			string c1(info->CommodityNo);
+			string c2(info->ContractNo);
+			string instrumentID=c1+c2;
+			os << "[TAP-TRADE] Received current day position [securityID=" << instrumentID << "][date=" << info->MatchDate << "]";
+			switch(info->MatchSide)
+			{
+				case TAPI_SIDE_BUY:
+				{
+					os << "[side=buy][PositionNo=" << info->PositionNo << "][today=" << info->PositionQty << "][price=" << info->PositionPrice << "]";
+					this->resetPosition(instrumentID, Side::BUY, PositionType::OPEN_TODAY, info->PositionQty);
+					break;
+				}
+				case TAPI_SIDE_SELL:
+				{
+					os << "[side=sell][PositionNo=" << info->PositionNo << "][today=" << info->PositionQty << "][price=" << info->PositionPrice << "]";
+					this->resetPosition(instrumentID, Side::SELL, PositionType::OPEN_TODAY, info->PositionQty);
+					break;
+				}
+				case TAPI_SIDE_NONE:
+				default:
+				{
+				}
+			}
+			this->logger(os.str());
+		}
+
+		//all position info recieved
+		if(isLast == APIYNFLAG_YES)
+		{
+			os << "Last position ****"<<endl;
+			this->logger(os.str());
+			this->m_Event.SignalEvent();	
+		}
 	}
 }
 

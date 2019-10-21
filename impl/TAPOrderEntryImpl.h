@@ -36,6 +36,7 @@
 #include <boost/lockfree/spsc_queue.hpp>
 #include <boost/locale.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 
 using namespace std;
 typedef std::string Shortname;
