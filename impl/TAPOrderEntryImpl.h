@@ -85,19 +85,19 @@ struct TAPOrderUpdate
 
 struct TAPOrderIDMapping
 {
-	unsigned int 	refID;
+	int			 	refID;
 	std::string		orderID;
 };
 
 struct TAPOrderStatusMapping
 {
-	unsigned int 			refID;
+	int			 			refID;
 	TAPOrderStatus			status;
 };
 
 struct TAPReplaceCompletion
 {
-	unsigned int 				refID;
+	int			 				refID;
 	std::function<void()> 		func;
 };
 
@@ -218,16 +218,18 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 		boost::mutex securityCacheFileMutex;
 
 		boost::lockfree::spsc_queue<TAPOrderIDMapping>* orderIDToRefIDQueue;
-		boost::unordered_map<std::string,unsigned int>*	orderIDToRefIDMap;
+		boost::unordered_map<std::string, int>*	orderIDToRefIDMap;
 
 		boost::lockfree::spsc_queue<TAPOrderIDMapping>* refIDToOrderIDQueue;
-		boost::unordered_map<unsigned int, std::string>*	refIDToOrderIDMap;
+		boost::unordered_map<int, std::string>*	refIDToOrderIDMap;
 
 		boost::lockfree::spsc_queue<TAPOrderStatusMapping>* refIDToOrderStatusQueue;
-		boost::unordered_map<unsigned int, TAPOrderStatus>*	refIDToOrderStatusMap;
+		boost::unordered_map<int, TAPOrderStatus>*	refIDToOrderStatusMap;
+
+		boost::unordered_map<int, std::string>*	refIDToOrderNoMap;
 
 		boost::lockfree::spsc_queue<TAPReplaceCompletion*>* replaceQueue;
-		boost::unordered_map<unsigned int, std::function<void()>>* replaceFunctionMap;
+		boost::unordered_map<int, std::function<void()>>* replaceFunctionMap;
 
 		std::string address;
 		unsigned short port;
@@ -241,7 +243,7 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 		int sessionID;
 
 		unsigned int reqID;
-		boost::atomic_uint refID;
+		boost::atomic_int refID;
 
 		JNIThreadManager* jniThreadManager;
 		NativeThreadID mainCallbackThreadID;
@@ -260,15 +262,15 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 		void notifyConnectionStatus(bool);
 		void loadSecurityCache(std::string);
 		int getNextRequestID();
-		unsigned int getNextRefID();
+		int getNextRefID();
 
-		void enrichNew(TapAPINewOrder*,unsigned int);
-		void enrichCancel(TapAPIOrderCancelReq*,unsigned int);
+		void enrichNew(TapAPINewOrder*, int);
+		void enrichCancel(TapAPIOrderCancelReq*, int);
 
-		void ackNew(unsigned int);
-		void ackCancel(unsigned int);
+		void ackNew(int);
+		void ackCancel(int);
 
-		void reject(unsigned int,const RejectType*,std::string);
+		void reject(int,const RejectType*,std::string);
 
 		void updatePosition(StatisticsMessage*);
 		void updateAccountDetails(StatisticsMessage*);
@@ -399,6 +401,7 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 			os << "[MarketLevel=" << _field->MarketLevel << "]";
 			os << "[FutureAutoCloseFlag=" << _field->FutureAutoCloseFlag << "]";
 			os << "[UpperChannelNo=" << _field->UpperChannelNo << "]";
+			os << endl;
 			this->logger(os.str());
 		}
 
@@ -410,7 +413,7 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 			os << "[RefString=" << _field->RefString << "]";
 			os << "[ServerFlag=" << _field->ServerFlag << "]";
 			os << "[OrderNo=" << _field->OrderNo << "]";
-
+			os << endl;
 			this->logger(os.str());
 		}
 };
@@ -578,6 +581,8 @@ class TAPOrderMessageDecoderBinding : public DecoderBinding<TAPOrderRequest>
 						if(!this->securityCache->getContractDefinitionBySecurityID(definition->securityID, contractDef)){
 							return;
 						}
+						strcpy(_message->reqNew->ExchangeNo, contractDef->ExchangeNo);
+						_message->reqNew->CommodityType = contractDef->CommodityType;
 						strcpy(_message->reqNew->CommodityNo, contractDef->CommodityNo);
 						strcpy(_message->reqNew->ContractNo, contractDef->ContractNo);
 

@@ -23,16 +23,18 @@ TAPOrderEntryImpl::TAPOrderEntryImpl(JNIThreadManager* _manager, CallbackFunc _c
 	this->arbitrageProducts = new boost::unordered_set<Shortname>();
 
 	this->orderIDToRefIDQueue = new boost::lockfree::spsc_queue<TAPOrderIDMapping>(1024);
-	this->orderIDToRefIDMap = new boost::unordered_map<std::string, unsigned int>();
+	this->orderIDToRefIDMap = new boost::unordered_map<std::string, int>();
 
 	this->refIDToOrderIDQueue = new boost::lockfree::spsc_queue<TAPOrderIDMapping>(1024);
-	this->refIDToOrderIDMap = new boost::unordered_map<unsigned int, std::string>();
+	this->refIDToOrderIDMap = new boost::unordered_map<int, std::string>();
 
 	this->refIDToOrderStatusQueue = new boost::lockfree::spsc_queue<TAPOrderStatusMapping>(1024);
-	this->refIDToOrderStatusMap = new boost::unordered_map<unsigned int, TAPOrderStatus>();
+	this->refIDToOrderStatusMap = new boost::unordered_map<int, TAPOrderStatus>();
+
+	this->refIDToOrderNoMap = new boost::unordered_map<int, std::string>();
 
 	this->replaceQueue = new boost::lockfree::spsc_queue<TAPReplaceCompletion*>(1024);
-	this->replaceFunctionMap = new boost::unordered_map<unsigned int, std::function<void()>>();
+	this->replaceFunctionMap = new boost::unordered_map<int, std::function<void()>>();
 
 	this->encOrderBinding = new TAPOrderMessageEncoderBinding(this);
 	this->decOrderBinding = new TAPOrderMessageDecoderBinding(this, this->arbitrageProducts);
@@ -435,7 +437,7 @@ void TAPOrderEntryImpl::request(char* _msg, int _length)
 		{
 			case OrderAction::Identifier::ID_NEW:
 			{
-				unsigned int refID = this->getNextRefID();
+				int refID = this->getNextRefID();
 
 				TAPOrderIDMapping idMapping;
 				idMapping.refID = refID;
@@ -456,7 +458,7 @@ void TAPOrderEntryImpl::request(char* _msg, int _length)
 			case OrderAction::Identifier::ID_REPLACE:
 			{
 				this->updateOrderIDToRefIDMapping();
-				unsigned int cancelRefID = this->orderIDToRefIDMap->at(req.orderID);
+				int cancelRefID = this->orderIDToRefIDMap->at(req.orderID);
 
 				TAPIUINT32 cancelReqID = this->getNextRequestID();
 
@@ -471,7 +473,7 @@ void TAPOrderEntryImpl::request(char* _msg, int _length)
 					std::string orderID = req.orderID;
 					TapAPINewOrder* replaceReqNew = reqNew;
 					TAPIUINT32 newReqID = this->getNextRequestID();
-					unsigned int refID = this->getNextRefID();
+					int refID = this->getNextRefID();
 
 					(*this->refIDToOrderIDMap)[refID] = orderID;
 					(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::PENDING_REPLACE_PHASE_2;
@@ -499,7 +501,13 @@ void TAPOrderEntryImpl::request(char* _msg, int _length)
 				this->updateOrderIDToRefIDMapping();
 
 				TAPIUINT32 cancelReqID = this->getNextRequestID();
-				unsigned int refID = this->orderIDToRefIDMap->at(req.orderID);
+				std::ostringstream os0;
+				os0 << "[TAP-TRADE] [ID_CANCEL][req.orderID=" << req.orderID << "]";
+				this->logger(os0.str());
+				int refID = this->orderIDToRefIDMap->at(req.orderID);
+				std::ostringstream os1;
+				os1 << "[TAP-TRADE] [ID_CANCEL][refID=" << refID << "]";
+				this->logger(os1.str());
 
 				TAPOrderStatusMapping statusMapping;
 				statusMapping.refID = refID;
@@ -540,13 +548,48 @@ void TAPOrderEntryImpl::request(char* _msg, int _length)
 	}
 }
 
-void TAPOrderEntryImpl::enrichNew(TapAPINewOrder* _new, unsigned int _refID)
+void TAPOrderEntryImpl::enrichNew(TapAPINewOrder* _new, int _refID)
 {
-	strcpy(_new->ExchangeNo, this->brokerID.c_str());
+	// strcpy(_new->ExchangeNo, this->brokerID.c_str());
 	strcpy(_new->AccountNo, this->userID.c_str());
-	sprintf(_new->RefString, "%d", _refID);
+	_new->RefInt = _refID;
+	// sprintf(_new->RefString, "%d", _refID);
 
 	_new->OrderMinQty = 1;
+	_new->TacticsType = TAPI_TACTICS_TYPE_NONE;//Immediately
+
+	//------------- fill info ----------------
+	strcpy(_new->StrikePrice, "");		
+	_new->CallOrPutFlag = TAPI_CALLPUT_FLAG_NONE;		
+	strcpy(_new->ContractNo2, "");		
+	strcpy(_new->StrikePrice2, "");		
+	_new->CallOrPutFlag2 = TAPI_CALLPUT_FLAG_NONE;	
+	_new->OrderType = TAPI_ORDER_TYPE_MARKET;//市价			
+	// _new->OrderType = TAPI_ORDER_TYPE_LIMIT;//限价			
+	_new->OrderSource = TAPI_ORDER_SOURCE_ESUNNY_API;		
+	_new->TimeInForce = TAPI_ORDER_TIMEINFORCE_GFD;		
+	strcpy(_new->ExpireTime, "");		
+	_new->IsRiskOrder = APIYNFLAG_NO;		
+				
+	_new->PositionEffect2 = TAPI_PositionEffect_NONE;	
+	strcpy(_new->InquiryNo,"");			
+
+	_new->OrderPrice2;		
+	_new->StopPrice;			
+	_new->MinClipSize;		
+	_new->MaxClipSize;		
+	_new->RefInt;				
+	strcpy(_new->RefString, "");//关联字符串			
+
+	_new->TriggerCondition = TAPI_TRIGGER_CONDITION_NONE;	
+	_new->TriggerPriceType = TAPI_TRIGGER_PRICE_NONE;	
+
+	_new->AddOneIsValid = APIYNFLAG_NO;	
+	_new->OrderQty2;
+	_new->HedgeFlag2 = TAPI_HEDGEFLAG_NONE;
+	_new->MarketLevel = TAPI_MARKET_LEVEL_0;
+	_new->FutureAutoCloseFlag = APIYNFLAG_NO; // V9.0.2.0 20150520
+
 	//QA: no auto suspend
 	// _new->IsAutoSuspend = 0;
 	//QA: UserForceClose
@@ -557,9 +600,15 @@ void TAPOrderEntryImpl::enrichNew(TapAPINewOrder* _new, unsigned int _refID)
 	// _new->ContingentCondition = THOST_FTDC_CC_Immediately;
 }
 
-void TAPOrderEntryImpl::enrichCancel(TapAPIOrderCancelReq* _cancel, unsigned int _refID)
+void TAPOrderEntryImpl::enrichCancel(TapAPIOrderCancelReq* _cancel, int _refID)
 {
-	sprintf(_cancel->RefString, "%d", _refID);
+	// sprintf(_cancel->RefString, "%d", _refID);
+	_cancel->RefInt = _refID;
+	string orderNo = (*this->refIDToOrderNoMap)[_refID];
+	strcpy(_cancel->OrderNo, orderNo.c_str());
+	_cancel->ServerFlag='C';
+	_cancel->RefString;
+
 }
 
 int TAPOrderEntryImpl::getNextRequestID()
@@ -567,7 +616,7 @@ int TAPOrderEntryImpl::getNextRequestID()
 	return this->reqID++;
 }
 
-unsigned int TAPOrderEntryImpl::getNextRefID()
+int TAPOrderEntryImpl::getNextRefID()
 {
 	return this->refID++;
 }
@@ -889,12 +938,16 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnOrder( const TapAPIOrderInfoNotice *info 
 	}
 
 	if (info->ErrorCode != 0) {
-		cout << "服务器返回了一个关于委托信息的错误：" << info->ErrorCode << endl;
+		std::ostringstream os0;
+		os0 << "Order action error：" << info->ErrorCode << endl;
+		this->logger(os0.str());
 		return;
 	} 
 
 	TapAPIOrderInfo* _order = info->OrderInfo;
-	unsigned int refID = atoi(_order->OrderNo);
+	int refID = _order->RefInt;
+	string orderNo = _order->OrderNo;
+	(*this->refIDToOrderNoMap)[refID] = orderNo;
 
 	TAPIOrderStateType orderStatus = _order->OrderState;
 
@@ -906,35 +959,138 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnOrder( const TapAPIOrderInfoNotice *info 
 	this->updateRefIDToOrderStatusMapping();
 	this->updateRefIDToReplaceFunctionMapping();
 
-	//TODO: when to invoke ackNew/ackCancel/ackReject?
-	switch(orderStatus)
-	{
-		case TAPI_ORDER_STATE_SUBMIT: 
-		case TAPI_ORDER_STATE_ACCEPT: 
-		case TAPI_ORDER_STATE_TRIGGERING: 
-		case TAPI_ORDER_STATE_EXCTRIGGERING:
-		case TAPI_ORDER_STATE_QUEUED:
-		case TAPI_ORDER_STATE_PARTFINISHED:
-		case TAPI_ORDER_STATE_FINISHED:
+	if (info->SessionID > 0){//sessionid > 0: insert action
+		switch(orderStatus)
 		{
-			this->ackNew(refID);
-			break;
+			case TAPI_ORDER_STATE_PARTFINISHED:
+			case TAPI_ORDER_STATE_FINISHED: 
+			{
+				this->ackNew(refID);
+				break;
+			}
+			case TAPI_ORDER_STATE_FAIL:
+			{
+				if(!CollectionsHelper::containsKey(this->refIDToOrderStatusMap, refID))
+				{
+					std::ostringstream os;
+					os << "[TAP-TRADE] Unable to retrieve order status [OnRtnOrder()][refID=" << refID << "]";
+					this->logger(os.str());
+					return;
+				}
+
+				TAPOrderStatus status = (*this->refIDToOrderStatusMap)[refID];
+				if(status == TAPOrderStatus::PENDING_REPLACE_PHASE_2)
+				{
+					this->ackCancel(refID);
+				}
+				else
+				{
+					string errorMsg = "unknown";
+					if(info->OrderInfo->ErrorText!=NULL || info->OrderInfo->ErrorText !=""){
+						errorMsg = boost::locale::conv::to_utf<char>(info->OrderInfo->ErrorText, "GB2312");
+					}
+					(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
+					this->reject(refID, RejectType::NEW, errorMsg);
+				}
+				break;
+			}
+			case TAPI_ORDER_STATE_SUBMIT: 
+			case TAPI_ORDER_STATE_ACCEPT: 
+			case TAPI_ORDER_STATE_TRIGGERING: 
+			case TAPI_ORDER_STATE_EXCTRIGGERING:
+			case TAPI_ORDER_STATE_QUEUED:
+			case TAPI_ORDER_STATE_CANCELING:
+			case TAPI_ORDER_STATE_MODIFYING:
+			case TAPI_ORDER_STATE_CANCELED:
+			case TAPI_ORDER_STATE_LEFTDELETED:
+			case TAPI_ORDER_STATE_DELETED:
+			case TAPI_ORDER_STATE_SUPPENDED:
+			case TAPI_ORDER_STATE_DELETEDFOREXPIRE:
+			case TAPI_ORDER_STATE_EFFECT:
+			case TAPI_ORDER_STATE_APPLY:
+				break;
 		}
-		case TAPI_ORDER_STATE_CANCELING:
-		case TAPI_ORDER_STATE_MODIFYING:
-		case TAPI_ORDER_STATE_CANCELED:
+	}else{//session id =0: cancel action or active action(but active action not include here)
+		if (0!= info->OrderInfo->ErrorCode)
 		{
-			this->ackCancel(refID);
-			break;
-		}
-		case TAPI_ORDER_STATE_LEFTDELETED:
-		case TAPI_ORDER_STATE_FAIL:
-		case TAPI_ORDER_STATE_DELETED:
+			switch(orderStatus)
+			{
+				case TAPI_ORDER_STATE_CANCELED:
+				case TAPI_ORDER_STATE_LEFTDELETED:
+				// case TAPI_ORDER_STATE_DELETED: 
+				case TAPI_ORDER_STATE_DELETEDFOREXPIRE:
+				{
+					this->ackCancel(refID);
+					break;
+				}
+				case TAPI_ORDER_STATE_FAIL:
+				{
+					string errorMsg = "unknown";
+					if(info->OrderInfo->ErrorText!=NULL || info->OrderInfo->ErrorText !=""){
+						errorMsg = boost::locale::conv::to_utf<char>(info->OrderInfo->ErrorText, "GB2312");
+					}
+					(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
+					this->reject(refID, RejectType::CANCEL, errorMsg);
+					break;
+				}
+				case TAPI_ORDER_STATE_SUBMIT: 
+				case TAPI_ORDER_STATE_ACCEPT: 
+				case TAPI_ORDER_STATE_TRIGGERING: 
+				case TAPI_ORDER_STATE_EXCTRIGGERING:
+				case TAPI_ORDER_STATE_QUEUED:
+				case TAPI_ORDER_STATE_PARTFINISHED:
+				case TAPI_ORDER_STATE_FINISHED:
+				case TAPI_ORDER_STATE_CANCELING:
+				case TAPI_ORDER_STATE_MODIFYING:
+				case TAPI_ORDER_STATE_DELETED:
+				case TAPI_ORDER_STATE_SUPPENDED:
+				case TAPI_ORDER_STATE_EFFECT:
+				case TAPI_ORDER_STATE_APPLY:
+				{
+					break;
+				}
+			}
+		}else
 		{
-			this->reject(refID, RejectType::CANCEL,"unknown");
-			break;
+			if(info->OrderInfo->ErrorCode == TAPIERROR_ORDERDELETE_NOT_STATE)
+			{
+				string errorMsg=boost::locale::conv::to_utf<char>("此状态不允许撤单", "GB2312");;
+				(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
+				this->reject(refID, RejectType::CANCEL, errorMsg);
+			}
 		}
 	}
+	//TODO: when to invoke ackNew/ackCancel/ackReject?
+	// switch(orderStatus)
+	// {
+	// 	case TAPI_ORDER_STATE_SUBMIT: 
+	// 	case TAPI_ORDER_STATE_ACCEPT: 
+	// 	case TAPI_ORDER_STATE_TRIGGERING: 
+	// 	case TAPI_ORDER_STATE_EXCTRIGGERING:
+	// 	case TAPI_ORDER_STATE_QUEUED:
+	// 	case TAPI_ORDER_STATE_PARTFINISHED:
+	// 	case TAPI_ORDER_STATE_FINISHED:
+	// 	{
+	// 		this->ackNew(refID);
+	// 		break;
+	// 	}
+	// 	case TAPI_ORDER_STATE_CANCELING:
+	// 	case TAPI_ORDER_STATE_MODIFYING:
+	// 	case TAPI_ORDER_STATE_CANCELED:
+	// 	case TAPI_ORDER_STATE_LEFTDELETED:
+	// 	case TAPI_ORDER_STATE_DELETED:
+	// 	case TAPI_ORDER_STATE_SUPPENDED:
+	// 	case TAPI_ORDER_STATE_DELETEDFOREXPIRE:
+	// 	{
+	// 		this->ackCancel(refID);
+	// 		break;
+	// 	}
+	// 	case TAPI_ORDER_STATE_FAIL:
+	// 	{
+	// 		this->reject(refID, RejectType::CANCEL,"unknown");
+	// 		break;
+	// 	}
+	// }
 }
 // void TAPOrderEntryImpl::OnRtnOrder(CThostFtdcOrderField* _order)
 // {
@@ -1035,7 +1191,7 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnOrder( const TapAPIOrderInfoNotice *info 
 void TAP_CDECL TAPOrderEntryImpl::OnRtnFill( const TapAPIFillInfo *info )
 // void TAPOrderEntryImpl::OnRtnTrade(CThostFtdcTradeField* _trade)
 {
-	unsigned int refID = atoi(info->OrderNo);
+	int refID = atoi(info->OrderNo);
 
 	std::ostringstream os;
 	os << "[TAP-TRADE] Received trade update [refID=" << refID << "]";
@@ -1079,7 +1235,7 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnFill( const TapAPIFillInfo *info )
 
 //TODO: 
 void TAPOrderEntryImpl::OnOrderInsertError( const TapAPIOrderInfoNotice *info ){
-	unsigned int refID = atoi(info->OrderInfo->RefString);
+	int refID = atoi(info->OrderInfo->RefString);
 	std::string rejReason = getErrorString(info->ErrorCode);
 
 	std::ostringstream os;
@@ -1128,7 +1284,7 @@ void TAPOrderEntryImpl::OnOrderCancelError( const TapAPIOrderInfoNotice *info ){
 	// 	this->logger(os.str());
 	// 	return;
 	// }
-	unsigned int refID = atoi(info->OrderInfo->RefString);
+	int refID = atoi(info->OrderInfo->RefString);
 
 	std::ostringstream os;
 	os << "[TAP-TRADE] Error response (order cancel @ broker): [OnOrderCancelError()][refID=" << refID << "][rejRsn=" << rejReason << "]";
@@ -1436,7 +1592,7 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspAccountRentInfo(TAPIUINT32 sessionID, TAP
 //---------------------------------------------------------
 
 
-void TAPOrderEntryImpl::ackNew(unsigned int _refID)
+void TAPOrderEntryImpl::ackNew(int _refID)
 {
 	if(!CollectionsHelper::containsKey(this->refIDToOrderStatusMap, _refID))
 	{
@@ -1453,13 +1609,26 @@ void TAPOrderEntryImpl::ackNew(unsigned int _refID)
 		return;
 	}
 
-	TAPOrderStatus status = (*this->refIDToOrderStatusMap)[_refID];
-	std::string orderID = (*this->refIDToOrderIDMap)[_refID];
+	std::ostringstream os0;
+	os0 << "[TAP-TRADE] [ackNew()][refID=" << _refID << "]";
+	this->logger(os0.str());
 
+	TAPOrderStatus status = (*this->refIDToOrderStatusMap)[_refID];
+	std::ostringstream os1;
+	os1 << "[TAP-TRADE] [ackNew()][status get]";
+	this->logger(os1.str());
+
+	std::string orderID = (*this->refIDToOrderIDMap)[_refID];
+	std::ostringstream os2;
+	os2 << "[TAP-TRADE] [ackNew()][orderID=" << orderID << "]";
+	this->logger(os2.str());
+
+	std::ostringstream os3;
 	switch(status)
 	{
 		case TAPOrderStatus::PENDING_NEW:
 		{
+			os3 << "[TAP-TRADE] [ackNew()][status=pending]";
 			(*this->refIDToOrderStatusMap)[_refID] = TAPOrderStatus::WORKING;
 
 			TAPOrderIDMapping mapping;
@@ -1480,6 +1649,7 @@ void TAPOrderEntryImpl::ackNew(unsigned int _refID)
 		}
 		case TAPOrderStatus::PENDING_REPLACE_PHASE_2:
 		{
+			os3 << "[TAP-TRADE] [ackNew()][status=PENDING_REPLACE_PHASE_2]";
 			(*this->refIDToOrderStatusMap)[_refID] = TAPOrderStatus::WORKING;
 
 			TAPOrderIDMapping mapping;
@@ -1508,9 +1678,11 @@ void TAPOrderEntryImpl::ackNew(unsigned int _refID)
 			break;
 		}
 	}
+	this->logger(os3.str());
+
 }
 
-void TAPOrderEntryImpl::ackCancel(unsigned int _refID)
+void TAPOrderEntryImpl::ackCancel(int _refID)
 {
 	if(!CollectionsHelper::containsKey(this->refIDToOrderStatusMap, _refID))
 	{
@@ -1566,7 +1738,7 @@ void TAPOrderEntryImpl::ackCancel(unsigned int _refID)
 	}
 }
 
-void TAPOrderEntryImpl::reject(unsigned int _refID, const RejectType* _rejType, std::string _rejectReason)
+void TAPOrderEntryImpl::reject(int _refID, const RejectType* _rejType, std::string _rejectReason)
 {
 	if(!CollectionsHelper::containsKey(this->refIDToOrderIDMap, _refID))
 	{

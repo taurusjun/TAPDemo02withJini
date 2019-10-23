@@ -248,34 +248,34 @@ JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024OrderEntry_register
 	}
 }
 
-// JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024OrderEntry_deregister(JNIEnv* _env, jobject _this)
-// {
-// 	destroy_logger();
-// }
+JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024OrderEntry_deregister(JNIEnv* _env, jobject _this)
+{
+	destroy_logger();
+}
 
 JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024OrderEntry_connect(JNIEnv* _env, jobject _this)
 {
 	tap_orderentry->connect();
 }
 
-// JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024OrderEntry_disconnect(JNIEnv* _env, jobject _this)
-// {
-// 	ctp_orderentry->disconnect();
-// }
+JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024OrderEntry_disconnect(JNIEnv* _env, jobject _this)
+{
+	tap_orderentry->disconnect();
+}
 
-// JNIEXPORT void JNICALL Java_com_unown_ctp_jni_NativeCTP_00024OrderEntry_request(JNIEnv* _env, jobject _this, jbyteArray _msg, jint _length)
-// {
-// 	if(!order_req_registered)
-// 	{
-// 		threadManager->cacheJavaThreadEnv(boost::this_thread::get_id(), _env);
-// 		order_req_registered = 1;
-// 	}
+JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024OrderEntry_request(JNIEnv* _env, jobject _this, jbyteArray _msg, jint _length)
+{
+	if(!order_req_registered)
+	{
+		threadManager->cacheJavaThreadEnv(boost::this_thread::get_id(), _env);
+		order_req_registered = 1;
+	}
 
-// 	char msg[_length];
-// 	_env->GetByteArrayRegion(_msg, 0, _length, reinterpret_cast<jbyte*>(msg));
+	char msg[_length];
+	_env->GetByteArrayRegion(_msg, 0, _length, reinterpret_cast<jbyte*>(msg));
 
-// 	ctp_orderentry->request(msg, _length);
-// }
+	tap_orderentry->request(msg, _length);
+}
 ///---------------------------------------------------------------------------------------------------
 JNIEXPORT void JNICALL Java_com_unown_tap_jni_NativeTAP_00024MarketData_register(JNIEnv* _env, jobject _this, jobject _callback, jobject _config)
 {
