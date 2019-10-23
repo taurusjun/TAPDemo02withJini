@@ -32,6 +32,7 @@ TAPOrderEntryImpl::TAPOrderEntryImpl(JNIThreadManager* _manager, CallbackFunc _c
 	this->refIDToOrderStatusMap = new boost::unordered_map<int, TAPOrderStatus>();
 
 	this->refIDToOrderNoMap = new boost::unordered_map<int, std::string>();
+	this->refIDToOrderActionMap = new boost::unordered_map<int, TAPOrderAction>();
 
 	this->replaceQueue = new boost::lockfree::spsc_queue<TAPReplaceCompletion*>(1024);
 	this->replaceFunctionMap = new boost::unordered_map<int, std::function<void()>>();
@@ -590,6 +591,7 @@ void TAPOrderEntryImpl::enrichNew(TapAPINewOrder* _new, int _refID)
 	_new->MarketLevel = TAPI_MARKET_LEVEL_0;
 	_new->FutureAutoCloseFlag = APIYNFLAG_NO; // V9.0.2.0 20150520
 
+	(*this->refIDToOrderActionMap)[_refID]=TAPOrderAction::INSERT;
 	//QA: no auto suspend
 	// _new->IsAutoSuspend = 0;
 	//QA: UserForceClose
@@ -609,6 +611,7 @@ void TAPOrderEntryImpl::enrichCancel(TapAPIOrderCancelReq* _cancel, int _refID)
 	_cancel->ServerFlag='C';
 	_cancel->RefString;
 
+	(*this->refIDToOrderActionMap)[_refID]=TAPOrderAction::CANCEL;
 }
 
 int TAPOrderEntryImpl::getNextRequestID()
@@ -952,85 +955,62 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnOrder( const TapAPIOrderInfoNotice *info 
 	TAPIOrderStateType orderStatus = _order->OrderState;
 
 	std::ostringstream os;
-	os << "[TAP-TRADE] Received order status update [refID=" << refID << "][orderStatus=" << orderStatus << "]";
+	os << "[TAP-TRADE] Received order status update [refID=" << refID << "][orderStatus=" << orderStatus << "]"<<endl;
 	this->logger(os.str());
 
 	this->updateRefIDToOrderIDMapping();
 	this->updateRefIDToOrderStatusMapping();
 	this->updateRefIDToReplaceFunctionMapping();
 
-	if (info->SessionID > 0){//sessionid > 0: insert action
-		switch(orderStatus)
+	string errorMsg = "unknown";
+	if(info->OrderInfo->ErrorText!=NULL || info->OrderInfo->ErrorText !=""){
+		errorMsg = boost::locale::conv::to_utf<char>(info->OrderInfo->ErrorText, "GB2312");
+	}
+	std::ostringstream oso1;
+	oso1 <<"[SessionID=" <<info->SessionID<<"]";
+	if(!CollectionsHelper::containsKey(this->refIDToOrderActionMap, refID))
+	{
+		std::ostringstream os;
+		os << "[TAP-TRADE] Unable to retrieve action in OrderActionMap][refID=" << refID << "]"<<endl;
+		this->logger(os.str());
+		return;
+	}
+	TAPOrderAction tapOrderAction = (*this->refIDToOrderActionMap)[refID];
+	switch(tapOrderAction){
+		case TAPOrderAction::INSERT: //insert action
 		{
-			case TAPI_ORDER_STATE_PARTFINISHED:
-			case TAPI_ORDER_STATE_FINISHED: 
-			{
-				this->ackNew(refID);
-				break;
-			}
-			case TAPI_ORDER_STATE_FAIL:
-			{
-				if(!CollectionsHelper::containsKey(this->refIDToOrderStatusMap, refID))
-				{
-					std::ostringstream os;
-					os << "[TAP-TRADE] Unable to retrieve order status [OnRtnOrder()][refID=" << refID << "]";
-					this->logger(os.str());
-					return;
-				}
-
-				TAPOrderStatus status = (*this->refIDToOrderStatusMap)[refID];
-				if(status == TAPOrderStatus::PENDING_REPLACE_PHASE_2)
-				{
-					this->ackCancel(refID);
-				}
-				else
-				{
-					string errorMsg = "unknown";
-					if(info->OrderInfo->ErrorText!=NULL || info->OrderInfo->ErrorText !=""){
-						errorMsg = boost::locale::conv::to_utf<char>(info->OrderInfo->ErrorText, "GB2312");
-					}
-					(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
-					this->reject(refID, RejectType::NEW, errorMsg);
-				}
-				break;
-			}
-			case TAPI_ORDER_STATE_SUBMIT: 
-			case TAPI_ORDER_STATE_ACCEPT: 
-			case TAPI_ORDER_STATE_TRIGGERING: 
-			case TAPI_ORDER_STATE_EXCTRIGGERING:
-			case TAPI_ORDER_STATE_QUEUED:
-			case TAPI_ORDER_STATE_CANCELING:
-			case TAPI_ORDER_STATE_MODIFYING:
-			case TAPI_ORDER_STATE_CANCELED:
-			case TAPI_ORDER_STATE_LEFTDELETED:
-			case TAPI_ORDER_STATE_DELETED:
-			case TAPI_ORDER_STATE_SUPPENDED:
-			case TAPI_ORDER_STATE_DELETEDFOREXPIRE:
-			case TAPI_ORDER_STATE_EFFECT:
-			case TAPI_ORDER_STATE_APPLY:
-				break;
-		}
-	}else{//session id =0: cancel action or active action(but active action not include here)
-		if (0!= info->OrderInfo->ErrorCode)
-		{
+			oso1 << "[TAP-TRADE] Order insert returned [Order status="<<orderStatus<<"][Error code=" << info->OrderInfo->ErrorCode << "][Error message=" << errorMsg << "]";
 			switch(orderStatus)
 			{
-				case TAPI_ORDER_STATE_CANCELED:
-				case TAPI_ORDER_STATE_LEFTDELETED:
-				// case TAPI_ORDER_STATE_DELETED: 
-				case TAPI_ORDER_STATE_DELETEDFOREXPIRE:
+				case TAPI_ORDER_STATE_PARTFINISHED:
+				case TAPI_ORDER_STATE_FINISHED: 
 				{
-					this->ackCancel(refID);
+					oso1 << "[action= ackNew]";
+					this->ackNew(refID);
 					break;
 				}
 				case TAPI_ORDER_STATE_FAIL:
 				{
-					string errorMsg = "unknown";
-					if(info->OrderInfo->ErrorText!=NULL || info->OrderInfo->ErrorText !=""){
-						errorMsg = boost::locale::conv::to_utf<char>(info->OrderInfo->ErrorText, "GB2312");
+					if(!CollectionsHelper::containsKey(this->refIDToOrderStatusMap, refID))
+					{
+						std::ostringstream os;
+						os << "[TAP-TRADE] Unable to retrieve order status [OnRtnOrder()][refID=" << refID << "]";
+						this->logger(os.str());
+						return;
 					}
-					(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
-					this->reject(refID, RejectType::CANCEL, errorMsg);
+
+					TAPOrderStatus status = (*this->refIDToOrderStatusMap)[refID];
+					if(status == TAPOrderStatus::PENDING_REPLACE_PHASE_2)
+					{
+						oso1 << "[action= ackCancel]";
+						this->ackCancel(refID);
+					}
+					else
+					{
+						oso1 << "[action= reject][rejectType= new]";
+						(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
+						this->reject(refID, RejectType::NEW, errorMsg);
+					}
 					break;
 				}
 				case TAPI_ORDER_STATE_SUBMIT: 
@@ -1038,28 +1018,78 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnOrder( const TapAPIOrderInfoNotice *info 
 				case TAPI_ORDER_STATE_TRIGGERING: 
 				case TAPI_ORDER_STATE_EXCTRIGGERING:
 				case TAPI_ORDER_STATE_QUEUED:
-				case TAPI_ORDER_STATE_PARTFINISHED:
-				case TAPI_ORDER_STATE_FINISHED:
 				case TAPI_ORDER_STATE_CANCELING:
 				case TAPI_ORDER_STATE_MODIFYING:
+				case TAPI_ORDER_STATE_CANCELED:
+				case TAPI_ORDER_STATE_LEFTDELETED:
 				case TAPI_ORDER_STATE_DELETED:
 				case TAPI_ORDER_STATE_SUPPENDED:
+				case TAPI_ORDER_STATE_DELETEDFOREXPIRE:
 				case TAPI_ORDER_STATE_EFFECT:
 				case TAPI_ORDER_STATE_APPLY:
-				{
 					break;
+			}
+			break;//TAPOrderAction::INSERT
+		}
+		case TAPOrderAction::CANCEL://cancel action
+		{
+			oso1 << "[TAP-TRADE] Order cancel returned [Order status="<<orderStatus<<"][Error code=" << info->OrderInfo->ErrorCode << "]";
+			if (0!= info->OrderInfo->ErrorCode)
+			{
+				if(info->OrderInfo->ErrorCode == TAPIERROR_ORDERDELETE_NOT_STATE)
+				{
+					string errorMsg="此状态不允许撤单";
+					oso1 << "[Error message=" << errorMsg << "][action= reject][rejectType= cancel]";
+					(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
+					this->reject(refID, RejectType::CANCEL, errorMsg);
+				}else{
+					oso1 << "[Error message=" << errorMsg << "]";
+				}
+			}else
+			{
+				switch(orderStatus)
+				{
+					case TAPI_ORDER_STATE_CANCELED:
+					case TAPI_ORDER_STATE_LEFTDELETED:
+					// case TAPI_ORDER_STATE_DELETED: 
+					case TAPI_ORDER_STATE_DELETEDFOREXPIRE:
+					{
+						oso1 << "[Error message=" << errorMsg << "][action= ackCancel]";
+						this->ackCancel(refID);
+						break;
+					}
+					case TAPI_ORDER_STATE_FAIL:
+					{
+						string errorMsg = "unknown";
+						oso1 << "[Error message=" << errorMsg << "][action= reject][rejectType= cancel]";
+						(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
+						this->reject(refID, RejectType::CANCEL, errorMsg);
+						break;
+					}
+					case TAPI_ORDER_STATE_SUBMIT: 
+					case TAPI_ORDER_STATE_ACCEPT: 
+					case TAPI_ORDER_STATE_TRIGGERING: 
+					case TAPI_ORDER_STATE_EXCTRIGGERING:
+					case TAPI_ORDER_STATE_QUEUED:
+					case TAPI_ORDER_STATE_PARTFINISHED:
+					case TAPI_ORDER_STATE_FINISHED:
+					case TAPI_ORDER_STATE_CANCELING:
+					case TAPI_ORDER_STATE_MODIFYING:
+					case TAPI_ORDER_STATE_DELETED:
+					case TAPI_ORDER_STATE_SUPPENDED:
+					case TAPI_ORDER_STATE_EFFECT:
+					case TAPI_ORDER_STATE_APPLY:
+					{
+						break;
+					}
 				}
 			}
-		}else
-		{
-			if(info->OrderInfo->ErrorCode == TAPIERROR_ORDERDELETE_NOT_STATE)
-			{
-				string errorMsg=boost::locale::conv::to_utf<char>("此状态不允许撤单", "GB2312");;
-				(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
-				this->reject(refID, RejectType::CANCEL, errorMsg);
-			}
+			break;//TAPOrderAction::CANCEL
 		}
 	}
+
+	oso1<<endl;
+	this->logger(oso1.str());
 	//TODO: when to invoke ackNew/ackCancel/ackReject?
 	// switch(orderStatus)
 	// {

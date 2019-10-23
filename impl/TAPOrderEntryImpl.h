@@ -52,6 +52,11 @@ enum class TAPOrderStatus
 	PENDING_NEW, WORKING, PENDING_REPLACE_PHASE_1, PENDING_REPLACE_PHASE_2, PENDING_CANCEL, CANCELLED, REJECTED
 };
 
+enum class TAPOrderAction
+{
+	INSERT, CANCEL
+};
+
 class TAPOrderMessageEncoderBinding;
 class TAPOrderMessageDecoderBinding;
 
@@ -227,6 +232,7 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 		boost::unordered_map<int, TAPOrderStatus>*	refIDToOrderStatusMap;
 
 		boost::unordered_map<int, std::string>*	refIDToOrderNoMap;
+		boost::unordered_map<int, TAPOrderAction>*	refIDToOrderActionMap;
 
 		boost::lockfree::spsc_queue<TAPReplaceCompletion*>* replaceQueue;
 		boost::unordered_map<int, std::function<void()>>* replaceFunctionMap;
