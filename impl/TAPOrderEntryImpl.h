@@ -167,8 +167,8 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 		virtual bool getContractDefinitionBySecurityID(std::string,TapContractDefinition*&);
 
 		//Error handler:
-		void OnOrderInsertError( const TapAPIOrderInfoNotice *info );
-		void OnOrderCancelError( const TapAPIOrderInfoNotice *info );
+		void OnOrderInsertError(int refID, int errorCode );
+		void OnOrderCancelError(int refID, int errorCode );
 		
 		// inline
 		// static std::string getErrorString(CThostFtdcRspInfoField* _rspInfo)
