@@ -346,23 +346,42 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 		inline
 		static void copyNewRequest(TapAPINewOrder* _dest, TapAPINewOrder* _src)
 		{
+			strcpy(_dest->AccountNo, _src->AccountNo);
+			strcpy(_dest->ExchangeNo, _src->ExchangeNo);
+			_dest->CommodityType = _src->CommodityType;
 			strcpy(_dest->CommodityNo, _src->CommodityNo);
 			strcpy(_dest->ContractNo, _src->ContractNo);
-			_dest->TriggerPriceType = _src->TriggerPriceType;
-			_dest->TriggerCondition = _src->TriggerCondition;
-			_dest->StopPrice = _src->StopPrice;
+			strcpy(_dest->StrikePrice, _src->StrikePrice);
 			_dest->CallOrPutFlag = _src->CallOrPutFlag;
+			strcpy(_dest->ContractNo2, _src->ContractNo2);
+			strcpy(_dest->StrikePrice2, _src->StrikePrice2);
+			_dest->CallOrPutFlag2 = _src->CallOrPutFlag2;
 			_dest->OrderType = _src->OrderType;
+			_dest->OrderSource = _src->OrderSource;
+			_dest->TimeInForce = _src->TimeInForce;
+			strcpy(_dest->ExpireTime, _src->ExpireTime);
 			_dest->IsRiskOrder = _src->IsRiskOrder;
 			_dest->OrderSide = _src->OrderSide;
 			_dest->PositionEffect = _src->PositionEffect;
+			_dest->PositionEffect2 = _src->PositionEffect2;
+			strcpy(_dest->InquiryNo, _src->InquiryNo);
 			_dest->HedgeFlag = _src->HedgeFlag;
 			_dest->OrderPrice = _src->OrderPrice;
-			_dest->TimeInForce = _src->TimeInForce;
+			_dest->OrderPrice2 = _src->OrderPrice2;
+			_dest->StopPrice = _src->StopPrice;
+			_dest->OrderQty = _src->OrderQty;
 			_dest->OrderMinQty = _src->OrderMinQty;
 			_dest->MinClipSize = _src->MinClipSize;
 			_dest->MaxClipSize = _src->MaxClipSize;
 			_dest->TacticsType = _src->TacticsType;
+			_dest->TriggerCondition = _src->TriggerCondition;
+			_dest->TriggerPriceType = _src->TriggerPriceType;
+			_dest->AddOneIsValid = _src->AddOneIsValid;
+			_dest->OrderQty2 = _src->OrderQty2;
+			_dest->HedgeFlag2 = _src->HedgeFlag2;
+			_dest->MarketLevel = _src->MarketLevel;
+			_dest->FutureAutoCloseFlag = _src->FutureAutoCloseFlag;
+			strcpy(_dest->UpperChannelNo, _src->UpperChannelNo);
 		}
 
 		void printNewOrderRequest(TapAPINewOrder* _field)
@@ -604,7 +623,7 @@ class TAPOrderMessageDecoderBinding : public DecoderBinding<TAPOrderRequest>
 
 					if(_message->orderAction == OrderAction::CANCEL || _message->orderAction == OrderAction::REPLACE)
 					{
-						//TODO: cancel order 应该不需要合约信息
+						// cancel order not need InstrumentID
 						// strcpy(_message->reqCancel->InstrumentID, definition->securityID.c_str());
 					}
 
