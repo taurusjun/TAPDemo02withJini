@@ -172,21 +172,12 @@ bool TAPOrderEntryImpl::connect()
 	if (!rslt)
 	{
 		return false;
-	}
-	
-	// this->traderApi = CThostFtdcTraderApi::CreateFtdcTraderApi();
-	// this->traderApi->RegisterSpi(this);
-	// char front_addr[100];
-	// strcpy(front_addr, this->address.c_str());
-	// this->traderApi->RegisterFront(front_addr);
-	// this->traderApi->SubscribePrivateTopic(THOST_TERT_QUICK);
-	// this->traderApi->SubscribePublicTopic(THOST_TERT_QUICK);
-	// this->traderApi->Init();
+	}	
 
 	//TODO replace this with a latch
 	boost::this_thread::sleep(boost::posix_time::milliseconds(5000));
 
-	//没有单个合约的持仓查询，使用了qryPosition接口
+	//QryPosition
 	TAPIUINT32 m_uiSessionID = this->getNextRequestID();
 	std::ostringstream os2;
 	os2 << "[TAP-TRADE] Retrieving position [reqID=" << reqID << "] begin";
@@ -200,7 +191,8 @@ bool TAPOrderEntryImpl::connect()
 		this->logger(os.str());
 		return false;
 	}
-	//TODO: 是否使用事件等待返回？
+
+	//comment out the following sleep line and use event notification 
 	// boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
 	this->m_Event.WaitEvent();
 	std::ostringstream os3;
@@ -208,31 +200,6 @@ bool TAPOrderEntryImpl::connect()
 	this->logger(os3.str());
 	
 	return true;
-	//TODO: 查询单个合约的持仓，似乎没有对应的API
-	// for(auto iter = this->securityCacheBySecurityID->begin(); iter != this->securityCacheBySecurityID->end(); ++iter)
-	// {
-	// 	std::string securityID = iter->first;
-
-	// 	TAPIUINT32 m_uiSessionID = this->getNextRequestID();
-	// 	std::ostringstream os;
-	// 	os << "[TAP-TRADE] Retrieving position [securityID=" << securityID << "][reqID=" << reqID << "]";
-	// 	this->logger(os.str());
-
-	// 	TapAPIPositionQryReq stQryPosReq;
-	// 	memset(&stQryPosReq, 0, sizeof(stQryPosReq));
-	// 	iErr = this->traderApi->QryPosition(&m_uiSessionID,&stQryPosReq);
-	// 	if(TAPIERROR_SUCCEED != iErr) {
-	// 		cout << "QryPosition Error:" << iErr <<endl;
-	// 		return false;
-	// 	}
-	// 	// CThostFtdcQryInvestorPositionField position;
-	// 	// strcpy(position.BrokerID, this->brokerID.c_str());
-	// 	// strcpy(position.InvestorID, this->userID.c_str());
-	// 	// strcpy(position.InstrumentID, securityID.c_str());
-	// 	// this->traderApi->ReqQryInvestorPosition(&position, reqID);
-
-	// 	boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
-	// }
 }
 
 void TAPOrderEntryImpl::disconnect()
@@ -274,20 +241,6 @@ bool TAPOrderEntryImpl::login()
 	return true;
 }
 
-//无需进行投资者结算
-// void TAPOrderEntryImpl::confirmLogin(CThostFtdcRspUserLoginField* _response)
-// {
-// 	this->frontID = _response->FrontID;
-// 	this->sessionID = _response->SessionID;
-
-// 	CThostFtdcSettlementInfoConfirmField confirmField;
-
-// 	strcpy(confirmField.BrokerID, this->brokerID.c_str());
-// 	strcpy(confirmField.InvestorID, this->userID.c_str());
-
-// 	this->traderApi->ReqSettlementInfoConfirm(&confirmField, this->getNextRequestID());
-// }
-
 void TAPOrderEntryImpl::retrievePositions()
 {
 	for(auto iter = this->securityCacheBySecurityID->begin(); iter != this->securityCacheBySecurityID->end(); ++iter)
@@ -302,6 +255,7 @@ void TAPOrderEntryImpl::retrievePositions()
 	}
 }
 
+//update postions from history data
 void TAPOrderEntryImpl::resetPosition(std::string _securityID, const Side* _side, const PositionType* _type, int _size)
 {
 	if(CollectionsHelper::containsKey(this->securityCacheBySecurityID, _securityID))
@@ -318,6 +272,7 @@ void TAPOrderEntryImpl::resetPosition(std::string _securityID, const Side* _side
 	}	
 }
 
+//Query account fund info
 void TAPOrderEntryImpl::retrieveAccountDetails()
 {
 	if(this->traderApi != 0)
@@ -330,6 +285,7 @@ void TAPOrderEntryImpl::retrieveAccountDetails()
 	}
 }
 
+//update account fund info
 void TAPOrderEntryImpl::resetAccountDetails(double _preBalance, double _currBalance, double _currMargin, double _availableMargin)
 {
 	StatisticsMessage update;
@@ -505,13 +461,7 @@ void TAPOrderEntryImpl::request(char* _msg, int _length)
 				this->updateOrderIDToRefIDMapping();
 
 				TAPIUINT32 cancelReqID = this->getNextRequestID();
-				std::ostringstream os0;
-				os0 << "[TAP-TRADE] [ID_CANCEL][req.orderID=" << req.orderID << "]";
-				this->logger(os0.str());
 				int refID = this->orderIDToRefIDMap->at(req.orderID);
-				std::ostringstream os1;
-				os1 << "[TAP-TRADE] [ID_CANCEL][refID=" << refID << "]";
-				this->logger(os1.str());
 
 				TAPOrderStatusMapping statusMapping;
 				statusMapping.refID = refID;
@@ -554,10 +504,8 @@ void TAPOrderEntryImpl::request(char* _msg, int _length)
 
 void TAPOrderEntryImpl::enrichNew(TapAPINewOrder* _new, int _refID)
 {
-	// strcpy(_new->ExchangeNo, this->brokerID.c_str());
 	strcpy(_new->AccountNo, this->userID.c_str());
 	_new->RefInt = _refID;
-	// sprintf(_new->RefString, "%d", _refID);
 
 	_new->OrderMinQty = 1;
 	_new->TacticsType = TAPI_TACTICS_TYPE_NONE;//Immediately
@@ -568,8 +516,8 @@ void TAPOrderEntryImpl::enrichNew(TapAPINewOrder* _new, int _refID)
 	strcpy(_new->ContractNo2, "");		
 	strcpy(_new->StrikePrice2, "");		
 	_new->CallOrPutFlag2 = TAPI_CALLPUT_FLAG_NONE;	
-	_new->OrderType = TAPI_ORDER_TYPE_MARKET;//市价			
-	// _new->OrderType = TAPI_ORDER_TYPE_LIMIT;//限价			
+	_new->OrderType = TAPI_ORDER_TYPE_MARKET;//			
+	// _new->OrderType = TAPI_ORDER_TYPE_LIMIT;//			
 	_new->OrderSource = TAPI_ORDER_SOURCE_ESUNNY_API;		
 	_new->TimeInForce = TAPI_ORDER_TIMEINFORCE_GFD;		
 	strcpy(_new->ExpireTime, "");		
@@ -583,7 +531,7 @@ void TAPOrderEntryImpl::enrichNew(TapAPINewOrder* _new, int _refID)
 	_new->MinClipSize;		
 	_new->MaxClipSize;		
 	_new->RefInt;				
-	strcpy(_new->RefString, "");//关联字符串			
+	strcpy(_new->RefString, "");//TODO			
 
 	_new->TriggerCondition = TAPI_TRIGGER_CONDITION_NONE;	
 	_new->TriggerPriceType = TAPI_TRIGGER_PRICE_NONE;	
@@ -595,24 +543,15 @@ void TAPOrderEntryImpl::enrichNew(TapAPINewOrder* _new, int _refID)
 	_new->FutureAutoCloseFlag = APIYNFLAG_NO; // V9.0.2.0 20150520
 
 	(*this->refIDToOrderActionMap)[_refID]=TAPOrderAction::INSERT;
-	//QA: no auto suspend
-	// _new->IsAutoSuspend = 0;
-	//QA: UserForceClose
-	// _new->UserForceClose = 0;
-	//QA: ForceCloseReason
-	// _new->ForceCloseReason = THOST_FTDC_FCC_NotForceClose;
-	//QA: no ContingentCondition
-	// _new->ContingentCondition = THOST_FTDC_CC_Immediately;
 }
 
 void TAPOrderEntryImpl::enrichCancel(TapAPIOrderCancelReq* _cancel, int _refID)
 {
-	// sprintf(_cancel->RefString, "%d", _refID);
 	_cancel->RefInt = _refID;
 	string orderNo = (*this->refIDToOrderNoMap)[_refID];
 	strcpy(_cancel->OrderNo, orderNo.c_str());
 	_cancel->ServerFlag='C';
-	_cancel->RefString;
+	_cancel->RefString;//TODO
 
 	(*this->refIDToOrderActionMap)[_refID]=TAPOrderAction::CANCEL;
 }
@@ -634,13 +573,9 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspLogin( TAPIINT32 errorCode, const TapAPIT
 
 		//register current thread as call back thread
 		NativeThreadID id = boost::this_thread::get_id();
-		//TEST Only -- begin
-		// this->jniThreadManager->registerJNIThreadName(id, "tap-trade-callback");
-		// this->jniThreadManager->getNativeThreadEnv(id);
-		//TEST Only -- end
+		this->jniThreadManager->registerJNIThreadName(id, "tap-trade-callback");
+		this->jniThreadManager->getNativeThreadEnv(id);
 		this->mainCallbackThreadID = id;
-
-		// m_bIsAPIReady = true;
 	} else {
 		this->logger("[TAP-TRADE] Login failed!");
 		this->m_Event.SignalEvent();	
@@ -649,9 +584,6 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspLogin( TAPIINT32 errorCode, const TapAPIT
 
 void TAP_CDECL TAPOrderEntryImpl::OnAPIReady()
 {	
-	// 无需进行投资者结算
-	// this->confirmLogin(_rspUserLogin);
-
 	//requesting positions too soon after startup can result in an error
 	boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
 	this->retrievePositions();
@@ -662,27 +594,13 @@ void TAP_CDECL TAPOrderEntryImpl::OnAPIReady()
 	this->notifyConnectionStatus(true);
 }
 
-// void TAPOrderEntryImpl::OnFrontConnected()
-// {
-// 	std::ostringstream os;
-// 	os << "[TAP-TRADE] Connected to TAP Trader API";
-// 	this->logger(os.str());
-
-// 	NativeThreadID id = boost::this_thread::get_id();
-// 	this->jniThreadManager->registerJNIThreadName(id, "ctp-trader-callback");
-// 	this->jniThreadManager->getNativeThreadEnv(id);
-// 	this->mainCallbackThreadID = id;
-
-// 	this->login();
-// }
-
 void TAP_CDECL TAPOrderEntryImpl::OnDisconnect( TAPIINT32 reasonCode )
 {
 	std::ostringstream os;
 	os << "[TAP-TRADE] Disconnected from TAP MD API: " << reasonCode;
 	this->logger(os.str());
 
-	std::string threadName = "ctp-trade-terminate";
+	std::string threadName = "tap-trade-terminate";
 	NativeThreadID id = boost::this_thread::get_id();
 	this->jniThreadManager->registerJNIThreadName(id, threadName);
 	this->jniThreadManager->getNativeThreadEnv(id);
@@ -702,83 +620,6 @@ void TAP_CDECL TAPOrderEntryImpl::OnDisconnect( TAPIINT32 reasonCode )
 		this->logger(os.str());
 	}
 }
-// void TAPOrderEntryImpl::OnFrontDisconnected(int _reason)
-// {
-// 	std::ostringstream os;
-// 	os << "[TAP-TRADE] Disconnected from TAP Trader API: " << _reason;
-// 	this->logger(os.str());
-
-// 	std::string threadName = "ctp-trader-terminate";
-// 	NativeThreadID id = boost::this_thread::get_id();
-// 	this->jniThreadManager->registerJNIThreadName(id, threadName);
-// 	this->jniThreadManager->getNativeThreadEnv(id);
-
-// 	this->notifyConnectionStatus(false);
-
-// 	if(!this->jniThreadManager->releaseNativeThreadEnv(id))
-// 	{
-// 		std::ostringstream os;
-// 		os << "[TAP-TRADE] Error releasing native thread [name=" << threadName << "]";
-// 		this->logger(os.str());
-// 	}
-
-// 	if(!this->jniThreadManager->releaseNativeThreadEnv(this->mainCallbackThreadID))
-// 	{
-// 		std::ostringstream os;
-// 		os << "[TAP-TRADE] Error releasing native thread [name=" << this->jniThreadManager->getJNIThreadName(this->mainCallbackThreadID) << "]";
-// 		this->logger(os.str());
-// 	}
-
-// 	/*
-// 	int remaining = this->jniThreadManager->releaseAll();
-
-// 	std::ostringstream os;
-// 	os << "[TAP-TRADE] Released additional threads [count=" << remaining << "]";
-// 	this->logger(os.str());
-// 	*/
-// }
-
-// void TAPOrderEntryImpl::OnHeartBeatWarning(int _timeLapse)
-// {
-// 	std::ostringstream os;
-// 	os << "[TAP-TRADE] Heartbeat: " << _timeLapse;
-// 	this->logger(os.str());
-// }
-
-// void TAPOrderEntryImpl::OnRspUserLogin(CThostFtdcRspUserLoginField* _rspUserLogin, CThostFtdcRspInfoField* _rspInfo, int _requestID, bool _isLast)
-// {
-// 	//only initialize refID from cold start
-// 	if(this->refID == 0)
-// 	{
-// 		this->refID = atoi(_rspUserLogin->MaxOrderRef);
-// 	}
-
-// 	std::ostringstream os;
-// 	os << "[TAP-TRADE] Logged in to TAP Trader API [user=" << _rspUserLogin->UserID << "][maxOrderRef=" << _rspUserLogin->MaxOrderRef << "][reqID=" << _requestID << "] login response: " << getErrorString(_rspInfo);
-// 	this->logger(os.str());
-
-// 	this->confirmLogin(_rspUserLogin);
-
-// 	//requesting positions too soon after startup can result in an error
-// 	boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
-// 	this->retrievePositions();
-// 	this->retrieveAccountDetails();
-// 	this->notifyConnectionStatus(true);
-// }
-
-// void TAPOrderEntryImpl::OnRspUserLogout(CThostFtdcUserLogoutField* _rspUserLogout, CThostFtdcRspInfoField* _rspInfo, int _nRequestID, bool _isLast)
-// {
-// 	std::ostringstream os;
-// 	os << "[TAP-TRADE] Logged out of TAP Trader API [user=" << _rspUserLogout->UserID << "] logout response: " << getErrorString(_rspInfo);
-// 	this->logger(os.str());
-// }
-
-// void TAPOrderEntryImpl::OnRspSettlementInfoConfirm(CThostFtdcSettlementInfoConfirmField* _settlementInfoConfirm, CThostFtdcRspInfoField* _rspInfo, int _requestID, bool _isLast)
-// {
-// 	std::ostringstream os;
-// 	os << "[TAP-TRADE] Received settlement confirmation [brokerID=" << _settlementInfoConfirm->BrokerID << "][investorID=" << _settlementInfoConfirm->InvestorID << "] settlement response: " << getErrorString(_rspInfo);
-// 	this->logger(os.str());
-// }
 
 void TAP_CDECL TAPOrderEntryImpl::OnRspQryPosition( TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPIPositionInfo *info )
 {
@@ -788,11 +629,9 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspQryPosition( TAPIUINT32 sessionID, TAPIIN
 		os << "[TAP-TRADE] Received flat position [reqID=" << sessionID << "]";
 		this->logger(os.str());
 	}
-	//History
-	//TODO: 是否直接计算总持仓？
 	else 
 	{
-		if(info->IsHistory == APIYNFLAG_YES)
+		if(info->IsHistory == APIYNFLAG_YES) //History
 		{	
 			string c1=info->CommodityNo;
 			string c2=info->ContractNo;
@@ -819,9 +658,7 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspQryPosition( TAPIUINT32 sessionID, TAPIIN
 			}
 			this->logger(os.str());
 		}
-		//Today
-		//TODO: 是否直接计算总持仓？
-		else if(info->IsHistory == APIYNFLAG_NO)
+		else if(info->IsHistory == APIYNFLAG_NO) //Today
 		{
 			string c1(info->CommodityNo);
 			string c2(info->ContractNo);
@@ -852,72 +689,14 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspQryPosition( TAPIUINT32 sessionID, TAPIIN
 		//all position info recieved
 		if(isLast == APIYNFLAG_YES)
 		{
-			os << "Last position ****"<<endl;
-			this->logger(os.str());
+			std::ostringstream os1;
+			os1 << "****** Last position reveived *****";
+			this->logger(os1.str());
 			this->m_Event.SignalEvent();	
 		}
 	}
 }
 
-// void TAPOrderEntryImpl::OnRspQryInvestorPosition(CThostFtdcInvestorPositionField* _position, CThostFtdcRspInfoField* _rspInfo, int _requestID, bool _isLast)
-// {
-// 	std::ostringstream os;
-// 	if(_position == 0)
-// 	{
-// 		os << "[TAP-TRADE] Received flat position [reqID=" << _requestID << "]";
-// 		this->logger(os.str());
-// 	}
-// 	else if(_position->PositionDate == THOST_FTDC_PSD_History)
-// 	{
-// 		os << "[TAP-TRADE] Received historical position [securityID=" << _position->InstrumentID << "][date=" << _position->TradingDay << "]";
-// 		switch(_position->PosiDirection)
-// 		{
-// 			case THOST_FTDC_PD_Long:
-// 			{
-// 				os << "[side=buy][today=" << _position->TodayPosition << "][overnight=" << _position->YdPosition << "][current=" << _position->Position << "][closed=" << _position->CloseVolume << "]";
-// 				this->resetPosition(std::string(_position->InstrumentID), Side::BUY, PositionType::OPEN_OVERNIGHT, _position->Position);
-// 				break;
-// 			}
-// 			case THOST_FTDC_PD_Short:
-// 			{
-// 				os << "[side=sell][today=" << _position->TodayPosition << "][overnight=" << _position->YdPosition << "][current=" << _position->Position << "][closed=" << _position->CloseVolume << "]";
-// 				this->resetPosition(std::string(_position->InstrumentID), Side::SELL, PositionType::OPEN_OVERNIGHT, _position->Position);
-// 				break;
-// 			}
-// 			default:
-// 			{
-// 				break;
-// 			}
-// 		}
-// 		this->logger(os.str());
-// 	}
-// 	else if(_position->PositionDate == THOST_FTDC_PSD_Today)
-// 	{
-// 		os << "[TAP-TRADE] Received current day position [securityID=" << _position->InstrumentID << "][date=" << _position->TradingDay << "]";
-// 		switch(_position->PosiDirection)
-// 		{
-// 			case THOST_FTDC_PD_Long:
-// 			{
-// 				os << "[side=buy][today=" << _position->TodayPosition << "][overnight=" << _position->YdPosition << "][current=" << _position->Position << "][closed=" << _position->CloseVolume << "]";
-// 				this->resetPosition(std::string(_position->InstrumentID), Side::BUY, PositionType::OPEN_TODAY, _position->Position);
-// 				break;
-// 			}
-// 			case THOST_FTDC_PD_Short:
-// 			{
-// 				os << "[side=sell][today=" << _position->TodayPosition << "][overnight=" << _position->YdPosition << "][current=" << _position->Position << "][closed=" << _position->CloseVolume << "]";
-// 				this->resetPosition(std::string(_position->InstrumentID), Side::SELL, PositionType::OPEN_TODAY, _position->Position);
-// 				break;
-// 			}
-// 			case THOST_FTDC_PD_Net:
-// 			default:
-// 			{
-// 			}
-// 		}
-// 		this->logger(os.str());
-// 	}
-// }
-
-// void TAPOrderEntryImpl::OnRspQryTradingAccount(CThostFtdcTradingAccountField* _account, CThostFtdcRspInfoField* _rspInfo, int _requestID, bool _isLast)
 void TAPOrderEntryImpl::OnRspQryFund(TAPIUINT32 sessionID, TAPIINT32 errorCode, TAPIYNFLAG isLast, const TapAPIFundData *info)
 {
 	if(info != NULL)
@@ -1105,133 +884,7 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnOrder( const TapAPIOrderInfoNotice *info 
 
 	oso1<<endl;
 	this->logger(oso1.str());
-	//TODO: when to invoke ackNew/ackCancel/ackReject?
-	// switch(orderStatus)
-	// {
-	// 	case TAPI_ORDER_STATE_SUBMIT: 
-	// 	case TAPI_ORDER_STATE_ACCEPT: 
-	// 	case TAPI_ORDER_STATE_TRIGGERING: 
-	// 	case TAPI_ORDER_STATE_EXCTRIGGERING:
-	// 	case TAPI_ORDER_STATE_QUEUED:
-	// 	case TAPI_ORDER_STATE_PARTFINISHED:
-	// 	case TAPI_ORDER_STATE_FINISHED:
-	// 	{
-	// 		this->ackNew(refID);
-	// 		break;
-	// 	}
-	// 	case TAPI_ORDER_STATE_CANCELING:
-	// 	case TAPI_ORDER_STATE_MODIFYING:
-	// 	case TAPI_ORDER_STATE_CANCELED:
-	// 	case TAPI_ORDER_STATE_LEFTDELETED:
-	// 	case TAPI_ORDER_STATE_DELETED:
-	// 	case TAPI_ORDER_STATE_SUPPENDED:
-	// 	case TAPI_ORDER_STATE_DELETEDFOREXPIRE:
-	// 	{
-	// 		this->ackCancel(refID);
-	// 		break;
-	// 	}
-	// 	case TAPI_ORDER_STATE_FAIL:
-	// 	{
-	// 		this->reject(refID, RejectType::CANCEL,"unknown");
-	// 		break;
-	// 	}
-	// }
 }
-// void TAPOrderEntryImpl::OnRtnOrder(CThostFtdcOrderField* _order)
-// {
-// 	unsigned int refID = atoi(_order->OrderRef);
-
-// 	TThostFtdcOrderStatusType orderStatus = _order->OrderStatus;
-// 	TThostFtdcOrderSubmitStatusType submitStatus = _order->OrderSubmitStatus;
-
-// 	std::ostringstream os;
-// 	os << "[TAP-TRADE] Received order status update [refID=" << refID << "][orderStatus=" << orderStatus << "][submitStatus=" << submitStatus << "]";
-// 	this->logger(os.str());
-
-// 	this->updateRefIDToOrderIDMapping();
-// 	this->updateRefIDToOrderStatusMapping();
-// 	this->updateRefIDToReplaceFunctionMapping();
-
-// 	switch(submitStatus)
-// 	{
-// 		case THOST_FTDC_OSS_InsertSubmitted:
-// 		{
-// 			unsigned int refID = atoi(_order->OrderRef);
-// 			switch(orderStatus)
-// 			{
-// 				case THOST_FTDC_OST_AllTraded: //Order submitted, entire quantity crosses book and is filled
-// 				case THOST_FTDC_OST_PartTradedQueueing: //Initial part fill, remaining order quantity is on the book
-// 				case THOST_FTDC_OST_NoTradeQueueing: //No initial trade, entire order quantity is on the book
-// 				{
-// 					this->ackNew(refID);
-// 					break;
-// 				}
-// 				case THOST_FTDC_OST_Canceled:
-// 				{
-// 					this->ackCancel(refID);
-// 					break;
-// 				}
-// 			}
-// 			break;
-// 		}
-// 		case THOST_FTDC_OSS_Accepted:
-// 		{
-// 			unsigned int refID = atoi(_order->OrderRef);
-// 			switch(orderStatus)
-// 			{
-// 				case THOST_FTDC_OST_PartTradedQueueing: //Initial part fill, remaining order quantity is on the book
-// 				case THOST_FTDC_OST_NoTradeQueueing: //No initial trade, entire order quantity is on the book
-// 				{
-// 					this->ackNew(refID);
-// 					break;
-// 				}
-// 				case THOST_FTDC_OST_Canceled:
-// 				{
-// 					this->ackCancel(refID);
-// 					break;
-// 				}
-// 			}
-// 			break;
-// 		}
-// 		case THOST_FTDC_OSS_InsertRejected:
-// 		{
-// 			unsigned int refID = atoi(_order->OrderRef);
-
-// 			if(!CollectionsHelper::containsKey(this->refIDToOrderStatusMap, refID))
-// 			{
-// 				std::ostringstream os;
-// 				os << "[TAP-TRADE] Unable to retrieve order status [OnRtnOrder()][refID=" << refID << "]";
-// 				this->logger(os.str());
-// 				return;
-// 			}
-
-// 			TAPOrderStatus status = (*this->refIDToOrderStatusMap)[refID];
-// 			if(status == TAPOrderStatus::PENDING_REPLACE_PHASE_2)
-// 			{
-// 				this->ackCancel(refID);
-// 			}
-// 			else
-// 			{
-// 				(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
-// 				this->reject(refID, RejectType::NEW, "unknown");
-// 			}
-// 			break;
-// 		}
-// 		case THOST_FTDC_OSS_CancelRejected:
-// 		{
-// 			unsigned int refID = atoi(_order->OrderRef);
-// 			(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::WORKING;
-// 			this->reject(refID, RejectType::CANCEL, "unknown");
-// 			break;
-// 		}
-// 		case THOST_FTDC_OSS_CancelSubmitted:
-// 		case THOST_FTDC_OSS_ModifySubmitted:
-// 		case THOST_FTDC_OSS_ModifyRejected:
-// 		{
-// 			break;
-// 		}
-// 	}
-// }
 
 void TAP_CDECL TAPOrderEntryImpl::OnRtnFill( const TapAPIFillInfo *info )
 // void TAPOrderEntryImpl::OnRtnTrade(CThostFtdcTradeField* _trade)
@@ -1265,18 +918,6 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnFill( const TapAPIFillInfo *info )
 
 	this->callback(addr, msgLen);
 }
-
-// void TAPOrderEntryImpl::OnRspError(CThostFtdcRspInfoField* _rspInfo, int _requestID, bool _isLast)
-// {
-// 	std::ostringstream os;
-// 	os << "[TAP-TRADE] Error response: [reqID=" << _requestID << "]" << getErrorString(_rspInfo);
-// 	this->logger(os.str());
-
-// 	std::cout << os.str() << std::endl;
-
-// 	this->updateRefIDToOrderIDMapping();
-// 	this->updateRefIDToOrderStatusMapping();
-// }
 
 void TAPOrderEntryImpl::OnOrderInsertError(int refID, int errorCode ){
 	std::string rejReason = getErrorString(errorCode);
@@ -1360,179 +1001,6 @@ void TAPOrderEntryImpl::OnOrderCancelError(int refID, int errorCode ){
 	}
 	this->logger(os.str());
 }
-
-// void TAPOrderEntryImpl::OnRspOrderInsert(CThostFtdcInputOrderField* _inputOrder, CThostFtdcRspInfoField* _rspInfo, int _requestID, bool _isLast)
-// {
-// 	unsigned int refID = atoi(_inputOrder->OrderRef);
-// 	std::string rejReason = getErrorString(_rspInfo);
-
-// 	std::ostringstream os;
-// 	os << "Error response (order insert @ broker): [OnRspOrderInsert()][refID=" << refID << "][rejRsn=" << rejReason << "]";
-// 	this->logger(os.str());
-
-// 	this->updateRefIDToOrderIDMapping();
-// 	this->updateRefIDToOrderStatusMapping();
-
-// 	if(!CollectionsHelper::containsKey(this->refIDToOrderStatusMap, refID))
-// 	{
-// 		std::ostringstream os;
-// 		os << "[TAP-TRADE] Unable to retrieve order status [OnRspOrderInsert()][refID=" << refID << "]";
-// 		this->logger(os.str());
-// 		return;
-// 	}
-
-// 	TAPOrderStatus status = (*this->refIDToOrderStatusMap)[refID];
-
-// 	switch(status)
-// 	{
-// 		case TAPOrderStatus::PENDING_NEW:
-// 		{
-// 			(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
-// 			this->reject(refID, RejectType::NEW, rejReason);
-// 			break;
-// 		}
-// 		case TAPOrderStatus::PENDING_REPLACE_PHASE_2:
-// 		{
-// 			this->ackCancel(refID);
-// 			break;
-// 		}
-// 		default:
-// 		{
-// 		}
-// 	}
-// }
-
-// void TAPOrderEntryImpl::OnRspOrderAction(CThostFtdcInputOrderActionField* _orderAction, CThostFtdcRspInfoField* _rspInfo, int _requestID, bool _isLast)
-// {
-// 	std::string rejReason = getErrorString(_rspInfo);
-// 	if(_orderAction == 0)
-// 	{
-// 		std::ostringstream os;
-// 		os << "[TAP-TRADE] Missing referenced order action: [OnRspOrderAction()][rejRsn=" << rejReason << "]";
-// 		this->logger(os.str());
-// 		return;
-// 	}
-// 	unsigned int refID = atoi(_orderAction->OrderRef);
-
-// 	std::ostringstream os;
-// 	os << "[TAP-TRADE] Error response (order cancel @ broker): [OnRspOrderAction()][refID=" << refID << "][rejRsn=" << rejReason << "]";
-// 	this->logger(os.str());
-
-// 	this->updateRefIDToOrderIDMapping();
-// 	this->updateRefIDToOrderStatusMapping();
-
-// 	if(!CollectionsHelper::containsKey(this->refIDToOrderStatusMap, refID))
-// 	{
-// 		std::ostringstream os;
-// 		os << "[TAP-TRADE] Unable to retrieve order status [OnRspOrderAction()][refID=" << refID << "]";
-// 		this->logger(os.str());
-// 		return;
-// 	}
-
-// 	TAPOrderStatus status = (*this->refIDToOrderStatusMap)[refID];
-
-// 	switch(status)
-// 	{
-// 		case TAPOrderStatus::PENDING_REPLACE_PHASE_1:
-// 		{
-// 			(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::WORKING;
-// 			this->reject(refID, RejectType::REPLACE, rejReason);
-// 			break;
-// 		}
-// 		case TAPOrderStatus::PENDING_CANCEL:
-// 		{
-// 			(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::WORKING;
-// 			this->reject(refID, RejectType::CANCEL, rejReason);
-// 			break;
-// 		}
-// 		default:
-// 		{
-// 		}
-// 	}
-// }
-
-// void TAPOrderEntryImpl::OnErrRtnOrderInsert(CThostFtdcInputOrderField* _inputOrder, CThostFtdcRspInfoField* _rspInfo)
-// {
-// 	unsigned int refID = atoi(_inputOrder->OrderRef);
-// 	std::string rejReason = getErrorString(_rspInfo);
-
-// 	std::ostringstream os;
-// 	os << "[TAP-TRADE] Error response (order insert @ exchange) [OnErrRtnOrderInsert()][refID=" << refID << "][rejRsn=" << rejReason << "]";
-// 	this->logger(os.str());
-
-// 	this->updateRefIDToOrderIDMapping();
-// 	this->updateRefIDToOrderStatusMapping();
-
-// 	if(!CollectionsHelper::containsKey(this->refIDToOrderStatusMap, refID))
-// 	{
-// 		std::ostringstream os;
-// 		os << "[TAP-TRADE] Unable to retrieve order status [OnErrRtnOrderInsert()][refID=" << refID << "]";
-// 		this->logger(os.str());
-// 		return;
-// 	}
-
-// 	TAPOrderStatus status = (*this->refIDToOrderStatusMap)[refID];
-
-// 	switch(status)
-// 	{
-// 		case TAPOrderStatus::PENDING_NEW:
-// 		{
-// 			(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
-// 			this->reject(refID, RejectType::NEW, rejReason);
-// 			break;
-// 		}
-// 		case TAPOrderStatus::PENDING_REPLACE_PHASE_2:
-// 		{
-// 			this->ackCancel(refID);
-// 			break;
-// 		}
-// 		default:
-// 		{
-// 		}
-// 	}
-// }
-
-// void TAPOrderEntryImpl::OnErrRtnOrderAction(CThostFtdcOrderActionField* _orderAction, CThostFtdcRspInfoField* _rspInfo)
-// {
-// 	unsigned int refID = atoi(_orderAction->OrderRef);
-// 	std::string rejReason = getErrorString(_rspInfo);
-
-// 	std::ostringstream os;
-// 	os << "[TAP-TRADE] Error response (order cancel @ exchange) [OnErrRtnOrderAction()][refID=" << refID << "][rejRsn=" << rejReason << "]";
-// 	this->logger(os.str());
-
-// 	this->updateRefIDToOrderIDMapping();
-// 	this->updateRefIDToOrderStatusMapping();
-
-// 	if(!CollectionsHelper::containsKey(this->refIDToOrderStatusMap, refID))
-// 	{
-// 		std::ostringstream os;
-// 		os << "[TAP-TRADE] Unable to retrieve order status [OnErrRtnOrderAction()][refID=" << refID << "]";
-// 		this->logger(os.str());
-// 		return;
-// 	}
-
-// 	TAPOrderStatus status = (*this->refIDToOrderStatusMap)[refID];
-
-// 	switch(status)
-// 	{
-// 		case TAPOrderStatus::PENDING_REPLACE_PHASE_1:
-// 		{
-// 			(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::WORKING;
-// 			this->reject(refID, RejectType::REPLACE, rejReason);
-// 			break;
-// 		}
-// 		case TAPOrderStatus::PENDING_CANCEL:
-// 		{
-// 			(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::WORKING;
-// 			this->reject(refID, RejectType::CANCEL, rejReason);
-// 			break;
-// 		}
-// 		default:
-// 		{
-// 		}
-// 	}
-// }
 
 //------------------unimplemented functions ---------------
 void TAP_CDECL TAPOrderEntryImpl::OnConnect()
@@ -1628,7 +1096,6 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspAccountRentInfo(TAPIUINT32 sessionID, TAP
 	cout << __FUNCTION__ << " is called." << endl;
 }
 //---------------------------------------------------------
-
 
 void TAPOrderEntryImpl::ackNew(int _refID)
 {

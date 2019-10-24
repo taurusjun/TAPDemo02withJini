@@ -173,3 +173,10 @@ Details: [AccountNo=Q48753284],[ExchangeNo=CFFEX],[CommodityType=F],[CommodityNo
 报单失败，[sessionId=35, m_uiSessionID= 35]: 状态:B,错误码:60031,委托编号:OC191024UY00006387,错误消息:
 Details: [AccountNo=Q48753284],[ExchangeNo=ZCE],[CommodityType=F],[CommodityNo=CF],[ContractNo=001],[StrikePrice=],[CallOrPutFlag=N],[ContractNo2=],[StrikePrice2=],[CallOrPutFlag2=N],[OrderType=1],[OrderSource=A],[TimeInForce=0],[ExpireTime=],[IsRiskOrder=N],[OrderSide=B],[PositionEffect=O],[PositionEffect2=N],[InquiryNo=],[HedgeFlag=T],[OrderPrice=3840],[OrderPrice2=0],[StopPrice=13000],[OrderQty=10000],[OrderMinQty=0],[OrderCanceledQty=0],[MinClipSize=0],[MaxClipSize=0],[LicenseNo=],[RefInt=0],[RefString=TXQQ00000001],[ParentAccountNo=],[ServerFlag=C],[OrderNo=OC191024UY00006387],[ClientOrderNo=6592776917912375296],[OrderLocalNo=],[OrderSystemNo=],[OrderExchangeSystemNo=],[OrderParentNo=],[OrderParentSystemNo=],[TradeNo=100000001],[UpperNo=ZCE],[UpperChannelNo=00100090],[UpperSettleNo=],[UpperUserNo=00100090],[OrderInsertUserNo=Q48753284],[OrderInsertTime=191023222223.732284],[OrderCommandUserNo=],[OrderUpdateUserNo=],[OrderUpdateTime=],[OrderState=B],[OrderMatchPrice=0],[OrderMatchPrice2=0],[OrderMatchQty=0],[OrderMatchQty2=0],[ErrorCode=60031],[ErrorText=],[IsBackInput=N],[IsDeleted=N],[IsAddOne=N],[OrderStreamID=20763],[UpperStreamID=0],[ContractSize=0],[ContractSize2=0],[CommodityCurrencyGroup=],[CommodityCurrency=],[FeeMode=],[FeeParam=0],[FeeCurrencyGroup=],[FeeCurrency=],[FeeMode2=],[FeeParam2=0],[FeeCurrencyGroup2=],[FeeCurrency2=],[MarginMode=],[MarginParam=0],[MarginMode2=],[MarginParam2=0],[PreSettlePrice=0],[PreSettlePrice2=0],[OpenVol=0],[CoverVol=0],[OpenVol2=0],[CoverVol2=0],[FeeValue=0],[MarginValue=0],[TacticsType=N],[TriggerCondition=G],[TriggerPriceType=L],[AddOneIsValid=],[OrderQty2=0],[HedgeFlag2=N],[MarketLevel=],[OrderDeleteByDisConnFlag=N]
 
+===  状态转换逻辑 =====================
+1. insert 成功 ackNew
+2. insert 失败 — 是否pending2
+				— 是 ackCancel  
+			      否 reject
+3. cancel 成功 ackCancel
+4. cancel 失败 reject
