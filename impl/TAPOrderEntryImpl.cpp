@@ -418,6 +418,14 @@ void TAPOrderEntryImpl::request(char* _msg, int _length)
 			case OrderAction::Identifier::ID_REPLACE:
 			{
 				this->updateOrderIDToRefIDMapping();
+				if(!CollectionsHelper::containsKey(this->orderIDToRefIDMap, req.orderID))
+				{
+					std::ostringstream os;
+					os << "[TAP-TRADE] Error: Unable to retrieve refID in OrderActionMap [orderID=" << req.orderID << "][OrderAction=REPLACE]"<<endl;
+					this->logger(os.str());
+					this->actionCallback(OrderAction::INTERNAL_REJECT, req.orderID, RejectType::CANCEL, "No refered cancel order");
+					return;
+				}
 				int cancelRefID = this->orderIDToRefIDMap->at(req.orderID);
 
 				TAPIUINT32 cancelReqID = this->getNextRequestID();
@@ -461,6 +469,15 @@ void TAPOrderEntryImpl::request(char* _msg, int _length)
 				this->updateOrderIDToRefIDMapping();
 
 				TAPIUINT32 cancelReqID = this->getNextRequestID();
+
+				if(!CollectionsHelper::containsKey(this->orderIDToRefIDMap, req.orderID))
+				{
+					std::ostringstream os;
+					os << "[TAP-TRADE] Error: Unable to retrieve refID in OrderActionMap [orderID=" << req.orderID << "][OrderAction=CANCEL]"<<endl;
+					this->logger(os.str());
+					this->actionCallback(OrderAction::INTERNAL_REJECT, req.orderID, RejectType::CANCEL, "No refered cancel order");
+					return;
+				}
 				int refID = this->orderIDToRefIDMap->at(req.orderID);
 
 				TAPOrderStatusMapping statusMapping;
@@ -476,7 +493,7 @@ void TAPOrderEntryImpl::request(char* _msg, int _length)
 			default:
 			{
 				std::ostringstream os;
-				os << "[TAP-TRADE] Unable to handle request with action ID: " << req.orderAction->value;
+				os << "[TAP-TRADE] Error: Unable to handle request with action ID: " << req.orderAction->value;
 				this->logger(os.str());
 				break;
 			}
@@ -837,7 +854,7 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnOrder( const TapAPIOrderInfoNotice *info 
 					(*this->refIDToOrderStatusMap)[refID] = TAPOrderStatus::REJECTED;
 					this->reject(refID, RejectType::CANCEL, errorMsg);
 				}else{
-					oso1 << "[Error message=" << errorMsg << "]";
+					oso1 << "[Error message=" << errorMsg << "][No action]";
 				}
 			}else
 			{
@@ -1113,19 +1130,8 @@ void TAPOrderEntryImpl::ackNew(int _refID)
 		return;
 	}
 
-	std::ostringstream os0;
-	os0 << "[TAP-TRADE] [ackNew()][refID=" << _refID << "]";
-	this->logger(os0.str());
-
 	TAPOrderStatus status = (*this->refIDToOrderStatusMap)[_refID];
-	std::ostringstream os1;
-	os1 << "[TAP-TRADE] [ackNew()][status get]";
-	this->logger(os1.str());
-
 	std::string orderID = (*this->refIDToOrderIDMap)[_refID];
-	std::ostringstream os2;
-	os2 << "[TAP-TRADE] [ackNew()][orderID=" << orderID << "]";
-	this->logger(os2.str());
 
 	std::ostringstream os3;
 	switch(status)
@@ -1263,6 +1269,22 @@ void TAPOrderEntryImpl::reject(int _refID, const RejectType* _rejType, std::stri
 	long addr = (long)data;
 
 	this->callback(addr, msgLen);
+}
+
+void TAPOrderEntryImpl::actionCallback(const OrderAction* _orderAction, string _orderID, const RejectType* _rejType, std::string _rejectReason)
+{
+	TAPOrderUpdate update;
+	update.orderAction = _orderAction;
+	update.orderID = _orderID;
+	update.rejectType = _rejType;
+	update.rejectReason = _rejectReason;
+
+	char data[MSG_BUFFER_SIZE];
+	int msgLen = CoreMessageEncoder::encode(CoreMessageType::ORDER_ENTRY_MESSAGE, data, this->encOrderBinding, this->fieldPresence_Order_Rej, this->fpLength_Order_Rej, &update);
+	long addr = (long)data;
+
+	this->callback(addr, msgLen);
+
 }
 
 void TAPOrderEntryImpl::updatePosition(StatisticsMessage* _update)

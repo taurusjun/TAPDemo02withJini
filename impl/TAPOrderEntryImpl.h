@@ -275,8 +275,8 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 
 		void ackNew(int);
 		void ackCancel(int);
-
 		void reject(int,const RejectType*,std::string);
+		void actionCallback(const OrderAction*,string,const RejectType*,std::string);
 
 		void updatePosition(StatisticsMessage*);
 		void updateAccountDetails(StatisticsMessage*);
