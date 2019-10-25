@@ -167,7 +167,7 @@ bool TAPOrderEntryImpl::connect()
 	}
 
 	std::ostringstream os;
-	os << "[TAP-MD] TradeAPI Info: " << GetTapTradeAPIVersion() << endl;
+	os << "[TAP-MD] TradeAPI Info: " << GetTapTradeAPIVersion();
 	this->logger(os.str());
 	if (!rslt)
 	{
@@ -312,7 +312,7 @@ void TAPOrderEntryImpl::loadSecurityCache(std::string _cacheFilePath)
 	boost::filesystem::path full_path(boost::filesystem::current_path());
 	std::ostringstream os0;
 	os0 << "Reading security cache file from:"<< full_path.c_str()<< "/"<< _cacheFilePath << ",";
-	os0 << "Format is like 'CFFEX:F:IF:1910:A'"<<endl;	
+	os0 << "Format is like 'CFFEX:F:IF:1910:A'";	
 	this->logger(os0.str());
 
 	std::ifstream securityCacheFile;
@@ -757,7 +757,7 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnOrder( const TapAPIOrderInfoNotice *info 
 	} 
 
 	std::ostringstream os;
-	os << "[TAP-TRADE] Received order status update [refID=" << refID << "][orderStatus=" << orderStatus << "]"<<endl;
+	os << "[TAP-TRADE] Received order status update [refID=" << refID << "][orderStatus=" << orderStatus << "]";
 	this->logger(os.str());
 
 	this->updateRefIDToOrderIDMapping();
@@ -776,6 +776,7 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnOrder( const TapAPIOrderInfoNotice *info 
 			oso1 << "[TAP-TRADE] Order insert returned [Order status="<<orderStatus<<"][Error code=" << info->OrderInfo->ErrorCode << "][Error message=" << errorMsg << "]";
 			switch(orderStatus)
 			{
+				case TAPI_ORDER_STATE_QUEUED:
 				case TAPI_ORDER_STATE_PARTFINISHED:
 				case TAPI_ORDER_STATE_FINISHED: 
 				{
@@ -811,7 +812,6 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnOrder( const TapAPIOrderInfoNotice *info 
 				case TAPI_ORDER_STATE_ACCEPT: 
 				case TAPI_ORDER_STATE_TRIGGERING: 
 				case TAPI_ORDER_STATE_EXCTRIGGERING:
-				case TAPI_ORDER_STATE_QUEUED:
 				case TAPI_ORDER_STATE_CANCELING:
 				case TAPI_ORDER_STATE_MODIFYING:
 				case TAPI_ORDER_STATE_CANCELED:
@@ -882,7 +882,6 @@ void TAP_CDECL TAPOrderEntryImpl::OnRtnOrder( const TapAPIOrderInfoNotice *info 
 		}
 	}
 
-	oso1<<endl;
 	this->logger(oso1.str());
 }
 
