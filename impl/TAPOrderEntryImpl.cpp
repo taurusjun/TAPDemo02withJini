@@ -166,13 +166,17 @@ bool TAPOrderEntryImpl::connect()
         rslt = this->login();
 	}
 
-	std::ostringstream os;
-	os << "[TAP-MD] TradeAPI Info: " << GetTapTradeAPIVersion();
-	this->logger(os.str());
 	if (!rslt)
 	{
+		std::ostringstream os;
+		os << "[TAP-TRADE] Error: login failed!" ;
+		this->logger(os.str());
 		return false;
 	}	
+
+	std::ostringstream os;
+	os << "[TAP-TRADE] TradeAPI Info: " << GetTapTradeAPIVersion();
+	this->logger(os.str());
 
 	//TODO replace this with a latch
 	boost::this_thread::sleep(boost::posix_time::milliseconds(5000));
@@ -225,7 +229,7 @@ bool TAPOrderEntryImpl::login()
 	iErr = traderApi->Login(&stLoginAuth);
 	if(TAPIERROR_SUCCEED != iErr) {
         ostringstream os;
-		os << "[TAP-MD] Error logging: " << iErr;
+		os << "[TAP-TRADER] Error logging: " << iErr;
 		this->logger(os.str());
 		return false;
 	}
@@ -233,11 +237,11 @@ bool TAPOrderEntryImpl::login()
 	// //Waiting for APIReady
 	this->m_Event.WaitEvent();
 	if (!this->m_bIsAPIReady){
-		this->logger("[TAP-MD] TradeAPI not ready, abort!");
+		this->logger("[TAP-TRADER] TradeAPI not ready, abort!");
 		return false;
 	}
 
-	this->logger("[TAP-MD] TradeAPI is ready.");
+	this->logger("[TAP-TRADER] TradeAPI is ready.");
 	return true;
 }
 
@@ -614,7 +618,7 @@ void TAP_CDECL TAPOrderEntryImpl::OnAPIReady()
 void TAP_CDECL TAPOrderEntryImpl::OnDisconnect( TAPIINT32 reasonCode )
 {
 	std::ostringstream os;
-	os << "[TAP-TRADE] Disconnected from TAP MD API: " << reasonCode;
+	os << "[TAP-TRADE] Disconnected from TAP TRADER API: " << reasonCode;
 	this->logger(os.str());
 
 	std::string threadName = "tap-trade-terminate";
