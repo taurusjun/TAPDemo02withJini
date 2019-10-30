@@ -28,6 +28,7 @@
 #include <fstream>
 #include <string.h>
 #include <math.h>
+#include <cctype>
 
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
@@ -113,7 +114,6 @@ class SecurityCache
 
 		virtual bool getSecurityDefinitionBySecurityID(std::string,SecurityDefinition*&) = 0;
 		virtual bool getSecurityDefinitionByShortname(std::string,SecurityDefinition*&) = 0;
-		virtual bool getContractDefinitionBySecurityID(std::string,TapContractDefinition*&) = 0;
 };
 
 class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
@@ -164,7 +164,6 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 		//implementation of SecurityCache 
 		virtual bool getSecurityDefinitionBySecurityID(std::string,SecurityDefinition*&);
 		virtual bool getSecurityDefinitionByShortname(std::string,SecurityDefinition*&);
-		virtual bool getContractDefinitionBySecurityID(std::string,TapContractDefinition*&);
 
 		//Error handler:
 		void OnOrderInsertError(int refID, int errorCode );
@@ -218,7 +217,6 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 		boost::unordered_map<Shortname, SecurityDefinition*>* securityCacheByShortname;
 		boost::unordered_map<SecurityID, SecurityDefinition*>* securityCacheBySecurityID;
 		boost::unordered_set<Shortname>* arbitrageProducts;
-		boost::unordered_map<SecurityID, TapContractDefinition*>* contractCacheBySecurityID;
 
 		boost::mutex securityCacheFileMutex;
 
@@ -243,6 +241,7 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 		std::string userID;
 		std::string password;
 		std::string exdest;
+		std::string exchangeNo;
 		std::string authcode;
 
 		int frontID;
@@ -602,14 +601,10 @@ class TAPOrderMessageDecoderBinding : public DecoderBinding<TAPOrderRequest>
 
 					if(_message->orderAction == OrderAction::NEW || _message->orderAction == OrderAction::REPLACE)
 					{
-						TapContractDefinition* contractDef = 0;
-						if(!this->securityCache->getContractDefinitionBySecurityID(definition->securityID, contractDef)){
-							return;
-						}
-						strcpy(_message->reqNew->ExchangeNo, contractDef->ExchangeNo);
-						_message->reqNew->CommodityType = contractDef->CommodityType;
-						strcpy(_message->reqNew->CommodityNo, contractDef->CommodityNo);
-						strcpy(_message->reqNew->ContractNo, contractDef->ContractNo);
+						std::string commodityNo = getCommodityNoFromInstrumentID(definition->securityID);
+						std::string contractNo =  getContractNoFromInstrumentID(definition->securityID);
+						strcpy(_message->reqNew->CommodityNo, commodityNo.c_str());
+						strcpy(_message->reqNew->ContractNo, contractNo.c_str());
 
 						if(CollectionsHelper::containsItem(this->arbitrageProducts, shortname))
 						{
@@ -740,6 +735,34 @@ class TAPOrderMessageDecoderBinding : public DecoderBinding<TAPOrderRequest>
 	private:
 		SecurityCache* securityCache;
 		boost::unordered_set<Shortname>* arbitrageProducts;
+
+		static std::string getCommodityNoFromInstrumentID(std::string _instrumentID)
+		{
+			size_t len = _instrumentID.size();
+			string p="";
+			for (size_t i = 0; i < len; i++)
+			{
+				char c = _instrumentID.at(i);
+				if(isalpha(c)){
+					p=p+c;
+				}
+			}
+			return p;
+		}
+
+		static std::string getContractNoFromInstrumentID(std::string _instrumentID)
+		{
+			size_t len = _instrumentID.size();
+			string p="";
+			for (size_t i = 0; i < len; i++)
+			{
+				char c = _instrumentID.at(i);
+				if(isdigit(c)){
+					p=p+c;
+				}
+			}
+			return p;
+		}
 };
 
 #endif /* TAPORDERENTRYIMPL_H */

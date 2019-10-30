@@ -246,6 +246,7 @@
                 "-lboost_thread",
                 "-lboost_locale",
                 "-lboost_system",
+                "-lboost_filesystem",
                 "-lpthread",
                 "-lunlib",
                 "-lTapTradeAPI",

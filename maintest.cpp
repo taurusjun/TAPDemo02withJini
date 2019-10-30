@@ -4,6 +4,7 @@
 #include "impl/TAPOrderEntryImpl.h"
 #include "impl/TAPSimpleEvent.h"
 #include "collections/ConcurrentQueue.hpp"
+#include <cctype>
 
 using namespace std;
 
@@ -238,6 +239,27 @@ bool retrieve_security_by_shortname_mock(std::string _shortname, SecurityDefinit
 int main()
 {
   cout <<"-------- main test --------" << endl;
+//   std::string s1="CF001";
+//   size_t len = s1.size();
+//   string p="";
+//   for (size_t i = 0; i < len; i++)
+//   {
+// 	  char c = s1.at(i);
+// 	  if(isdigit(c)){
+// 	//   if(isalpha(c)){
+// 		  p=p+c;
+// 	  }
+//   }
+  
+//   cout << p <<endl;
+	std::string s2 = "TAP-ZCE";
+	std::string s3=s2;
+	std::string m="TAP-";
+	boost::replace_first(s3,m,"");
+   cout << s2 <<endl;
+   cout << s3 <<endl;
+
+
 //   TAPISTR_10 test1="001";
 //   string c2=test1;
 //   cout << c2 <<endl;
@@ -253,11 +275,11 @@ int main()
   // cout << strs[4].compare("b")<<endl;
 //
 
-  threadManager = new JNIThreadManager(jvm);
-  JavaThreadID threadID = boost::this_thread::get_id();
-  tap_orderentry = new TAPOrderEntryImpl(threadManager, &order_callback_mock, &retrieve_security_by_id_exdest_mock, &retrieve_security_by_shortname_mock, &log_main);
-  tap_orderentry->configure("123.161.206.213","6060","","Q48753284","335236","",DEFAULT_AUTHCODE);
-  tap_orderentry->connect();
+//   threadManager = new JNIThreadManager(jvm);
+//   JavaThreadID threadID = boost::this_thread::get_id();
+//   tap_orderentry = new TAPOrderEntryImpl(threadManager, &order_callback_mock, &retrieve_security_by_id_exdest_mock, &retrieve_security_by_shortname_mock, &log_main);
+//   tap_orderentry->configure("123.161.206.213","6060","","Q48753284","335236","",DEFAULT_AUTHCODE);
+//   tap_orderentry->connect();
 
 
   return 0;

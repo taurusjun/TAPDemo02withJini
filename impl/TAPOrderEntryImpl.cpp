@@ -18,7 +18,6 @@ TAPOrderEntryImpl::TAPOrderEntryImpl(JNIThreadManager* _manager, CallbackFunc _c
 
 	this->securityCacheByShortname = new boost::unordered_map<Shortname, SecurityDefinition*>(8);
 	this->securityCacheBySecurityID = new boost::unordered_map<SecurityID, SecurityDefinition*>(8);
-	this->contractCacheBySecurityID = new boost::unordered_map<SecurityID, TapContractDefinition*>(8);
 
 	this->arbitrageProducts = new boost::unordered_set<Shortname>();
 
@@ -125,6 +124,10 @@ void TAPOrderEntryImpl::configure(std::string _address, std::string _port, std::
 	this->password = _password;
 	this->exdest = _exdest;
 	this->authcode=_authcode;
+
+	std::string exchangeNo = _exdest;
+	boost::replace_first(exchangeNo, "TAP-","");
+	this->exchangeNo = exchangeNo;
 
 	this->loadSecurityCache("conf/TAP/tap-security-cache.txt");
 }
@@ -315,8 +318,7 @@ void TAPOrderEntryImpl::loadSecurityCache(std::string _cacheFilePath)
 
 	boost::filesystem::path full_path(boost::filesystem::current_path());
 	std::ostringstream os0;
-	os0 << "Reading security cache file from:"<< full_path.c_str()<< "/"<< _cacheFilePath << ",";
-	os0 << "Format is like 'CFFEX:F:IF:1910:A'";	
+	os0 << "Reading security cache file from:"<< full_path.c_str()<< "/"<< _cacheFilePath;
 	this->logger(os0.str());
 
 	std::ifstream securityCacheFile;
@@ -338,26 +340,26 @@ void TAPOrderEntryImpl::loadSecurityCache(std::string _cacheFilePath)
 		{
 			bool isArb = false;
 			std::string securityID;
-			//try to spliit line like: "CFFEX:F:IF:1910:A"
-			std::vector<std::string> strs;
-			boost::split(strs, line, boost::is_any_of(":"));
-			TapContractDefinition* contractDef = new TapContractDefinition();
-			strcpy(contractDef->ExchangeNo, strs[0].c_str());
-			contractDef->CommodityType = strs[1][0];
-			strcpy(contractDef->CommodityNo, strs[2].c_str());
-			strcpy(contractDef->ContractNo, strs[3].c_str());
-
-			securityID = strs[2]+strs[3];
-			(*this->contractCacheBySecurityID)[securityID]=contractDef;
-			if(strs.size()>4 && strs[4].compare("A")==0){
+			std::string::size_type indexOf = line.find(':');
+			if(indexOf != std::string::npos)
+			{
+				securityID = line.substr(0, indexOf);
+				std::string spec = line.substr(indexOf);
+				if(spec.compare(":A") == 0)
+				{
 					isArb = true;
+				}
+			}
+			else
+			{
+				securityID = line;
 			}
 
 			SecurityDefinition* definition = new SecurityDefinition();
 			if(this->securityByID(securityID, this->exdest, definition))
 			{
 				std::ostringstream os;
-				os << "[TAP-TRADE] Caching security for [id=" << securityID << "][shortname=" << definition->shortname << "]";
+				os << "[TAP-TRADE] Caching security for [id=" << securityID << "][shortname=" << definition->shortname << "][isArb=" << isArb << "]";
 				this->logger(os.str());
 
 				(*this->securityCacheBySecurityID)[definition->securityID] = definition;
@@ -401,19 +403,6 @@ void TAPOrderEntryImpl::request(char* _msg, int _length)
 		{
 			case OrderAction::Identifier::ID_NEW:
 			{
-				if(req.reqNew->ExchangeNo == NULL||
-				  (!req.reqNew->CommodityType) ||
-				  req.reqNew->CommodityNo == NULL||
-				  req.reqNew->ContractNo == NULL
-				  )
-				{
-					std::ostringstream os;
-					os << "[TAP-TRADE] Error: No mapping contract in security-cache file [orderID=" << req.orderID << "][OrderAction=NEW]"<<endl;
-					this->logger(os.str());
-					this->actionCallback(OrderAction::INTERNAL_REJECT, req.orderID, RejectType::NEW, "No mapping contract in security-cache file");
-					return;
-				}
-
 				int refID = this->getNextRefID();
 
 				TAPOrderIDMapping idMapping;
@@ -434,15 +423,6 @@ void TAPOrderEntryImpl::request(char* _msg, int _length)
 			}
 			case OrderAction::Identifier::ID_REPLACE:
 			{
-				if(req.reqNew->ExchangeNo == NULL)
-				{
-					std::ostringstream os;
-					os << "[TAP-TRADE] Error: No mapping contract in security-cache file [orderID=" << req.orderID << "][OrderAction=REPLACE]"<<endl;
-					this->logger(os.str());
-					this->actionCallback(OrderAction::INTERNAL_REJECT, req.orderID, RejectType::NEW, "No mapping contract in security-cache file");
-					return;
-				}
-
 				this->updateOrderIDToRefIDMapping();
 				if(!CollectionsHelper::containsKey(this->orderIDToRefIDMap, req.orderID))
 				{
@@ -554,6 +534,8 @@ void TAPOrderEntryImpl::enrichNew(TapAPINewOrder* _new, int _refID)
 	_new->TacticsType = TAPI_TACTICS_TYPE_NONE;//Immediately
 
 	//------------- fill info ----------------
+	strcpy(_new->ExchangeNo, this->exchangeNo.c_str());
+	_new->CommodityType = TAPI_COMMODITY_TYPE_FUTURES;
 	strcpy(_new->StrikePrice, "");		
 	_new->CallOrPutFlag = TAPI_CALLPUT_FLAG_NONE;		
 	strcpy(_new->ContractNo2, "");		
@@ -1375,15 +1357,5 @@ bool TAPOrderEntryImpl::getSecurityDefinitionByShortname(std::string _shortname,
 		}
 	}
 	_bucket = (*this->securityCacheByShortname)[_shortname];
-	return true;
-}
-
-bool TAPOrderEntryImpl::getContractDefinitionBySecurityID(std::string _securityID,TapContractDefinition* &_bucket)
-{
-	if(!CollectionsHelper::containsKey(this->contractCacheBySecurityID, _securityID))
-	{
-		return false;
-	}
-	_bucket = (*this->contractCacheBySecurityID)[_securityID];
 	return true;
 }
