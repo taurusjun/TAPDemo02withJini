@@ -169,17 +169,6 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 		void OnOrderInsertError(int refID, int errorCode );
 		void OnOrderCancelError(int refID, int errorCode );
 
-		//calcalate accout positions
-		void calcPositions(const string& instrumentID, const Side* side, const PositionType* positionType, int positionQty);
-		void resetAccountPositions();
-
-		// inline
-		// static std::string getErrorString(CThostFtdcRspInfoField* _rspInfo)
-		// {
-		// 	std::ostringstream os;
-		// 	os << "[" << _rspInfo->ErrorID << "] " << _rspInfo->ErrorMsg;
-		// 	return os.str();
-		// }
 		inline
 		static std::string getErrorString(TAPIINT32 errorCode)
 		{

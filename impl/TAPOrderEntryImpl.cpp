@@ -1363,33 +1363,3 @@ bool TAPOrderEntryImpl::getSecurityDefinitionByShortname(std::string _shortname,
 	_bucket = (*this->securityCacheByShortname)[_shortname];
 	return true;
 }
-
-void TAPOrderEntryImpl::calcPositions(const string& instrumentID, const Side* side, const PositionType* positionType, int positionQty)
-{
-	string key="";
-	genKey(key, instrumentID, Side::BUY->value,PositionType::OPEN_OVERNIGHT->value);
-	if(CollectionsHelper::containsKey(this->positionStaticMap,key)){
-		(*this->positionStaticMap)[key] = (*this->positionStaticMap)[key] + positionQty;
-	}else{
-		(*this->positionStaticMap)[key] = positionQty;
-	}
-}
-
-void TAPOrderEntryImpl::resetAccountPositions()
-{	
-	std::ostringstream os;
-	for(auto iter = this->positionStaticMap->begin(); iter != this->positionStaticMap->end(); ++iter)
-	{
-		std::string key = iter->first;
-		int qty = (*this->positionStaticMap)[key];
-
-		string instrumentID="";
-		int sideValue=0;
-		int posTypeValue=0;
-		deGenKey(key, instrumentID, sideValue, posTypeValue);
-		const Side* side = Side::getSide(sideValue);
-		const PositionType* positionType = PositionType::getPositionType(posTypeValue);
-
-		this->resetPosition(instrumentID, side, positionType, qty);
-	}
-}
