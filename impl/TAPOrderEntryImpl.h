@@ -168,7 +168,11 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 		//Error handler:
 		void OnOrderInsertError(int refID, int errorCode );
 		void OnOrderCancelError(int refID, int errorCode );
-		
+
+		//calcalate accout positions
+		void calcPositions(const string& instrumentID, const Side* side, const PositionType* positionType, int positionQty);
+		void resetAccountPositions();
+
 		// inline
 		// static std::string getErrorString(CThostFtdcRspInfoField* _rspInfo)
 		// {
@@ -182,6 +186,22 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 			std::ostringstream os;
 			os << "[ErrorCode: ] " << errorCode;
 			return os.str();
+		}
+
+		inline
+		static void genKey(string& key, const string& instrumentID, const int& sideValue, const int& positionTypeValue)
+		{
+			key=instrumentID+"|"+std::to_string(sideValue)+"|"+std::to_string(positionTypeValue);
+		}
+
+		inline
+		static void deGenKey(const string& key, string& instrumentID, int& sideValue, int& positionTypeValue)
+		{
+			std::vector<std::string> strs;
+			boost::split(strs, key, boost::is_any_of("|"));
+			instrumentID = strs.at(0);
+			sideValue = atoi(strs.at(1).c_str());
+			positionTypeValue = atoi(strs.at(2).c_str());
 		}
 
 	private:
@@ -234,6 +254,8 @@ class TAPOrderEntryImpl : public ITapTradeAPINotify, public SecurityCache
 
 		boost::lockfree::spsc_queue<TAPReplaceCompletion*>* replaceQueue;
 		boost::unordered_map<int, std::function<void()>>* replaceFunctionMap;
+
+		boost::unordered_map<std::string, unsigned int>*	positionStaticMap;
 
 		std::string address;
 		unsigned short port;

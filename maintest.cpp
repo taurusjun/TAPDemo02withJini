@@ -235,6 +235,19 @@ bool retrieve_security_by_shortname_mock(std::string _shortname, SecurityDefinit
 }
 
 ////--------------------------------------------------------------------------------------
+void genKey(string& key, const string& instrumentID, const int& sideValue, const int& positionTypeValue)
+{
+	key=instrumentID+"|"+std::to_string(sideValue)+"|"+std::to_string(positionTypeValue);
+}
+
+void deGenKey(const string& key, string& instrumentID, int& sideValue, int& positionTypeValue)
+{
+	std::vector<std::string> strs;
+	boost::split(strs, key, boost::is_any_of("|"));
+	instrumentID = strs.at(0);
+	sideValue = atoi(strs.at(1).c_str());
+	positionTypeValue = atoi(strs.at(2).c_str());
+}
 
 int main()
 {
@@ -252,12 +265,12 @@ int main()
 //   }
   
 //   cout << p <<endl;
-	std::string s2 = "TAP-ZCE";
-	std::string s3=s2;
-	std::string m="TAP-";
-	boost::replace_first(s3,m,"");
-   cout << s2 <<endl;
-   cout << s3 <<endl;
+// 	std::string s2 = "TAP-ZCE";
+// 	std::string s3=s2;
+// 	std::string m="TAP-";
+// 	boost::replace_first(s3,m,"");
+//    cout << s2 <<endl;
+//    cout << s3 <<endl;
 
 
 //   TAPISTR_10 test1="001";
@@ -281,6 +294,19 @@ int main()
 //   tap_orderentry->configure("123.161.206.213","6060","","Q48753284","335236","",DEFAULT_AUTHCODE);
 //   tap_orderentry->connect();
 
+  string key="";
+  string insId="cu001";
+  const Side* side=Side::BUY;
+  const PositionType* posType=PositionType::OPEN_TODAY;
+
+  genKey(key,insId,side->value,posType->value);
+  cout << key<<endl;	
+
+  int sideValue=0;
+  int posTypeValue=0;
+
+  deGenKey(key,insId,sideValue,posTypeValue);
+  cout << insId <<" " << Side::getSide(sideValue)->value << " " << PositionType::getPositionType(posTypeValue)->value << endl;
 
   return 0;
 }

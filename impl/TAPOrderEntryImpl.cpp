@@ -41,6 +41,8 @@ TAPOrderEntryImpl::TAPOrderEntryImpl(JNIThreadManager* _manager, CallbackFunc _c
 	this->encStatBinding = new StatisticsMessageEncoderBinding();
 	this->decStatBinding = new StatisticsMessageDecoderBinding();
 
+	this->positionStaticMap = new boost::unordered_map<std::string, unsigned int>();
+
 	const ByteField* fields_order_ack[NUM_FIELDS_ORDER_ACK] =
 	{
 		ByteField::ORDER_ACTION,
@@ -268,9 +270,7 @@ void TAPOrderEntryImpl::resetPosition(std::string _securityID, const Side* _side
 	if(CollectionsHelper::containsKey(this->securityCacheBySecurityID, _securityID))
 	{
 		StatisticsMessage update;
-		// could not query for all position of one contract, thus use update for every trade position 	
-		update.statisticsAction = StatisticsAction::POSITION_UPDATE;	
-		// update.statisticsAction = StatisticsAction::POSITION_RESET;
+		update.statisticsAction = StatisticsAction::POSITION_RESET;
 		update.shortname = (*this->securityCacheBySecurityID)[_securityID]->shortname;
 		update.positionSide = _side;
 		update.positionType = _type;
@@ -667,12 +667,14 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspQryPosition( TAPIUINT32 sessionID, TAPIIN
 				case TAPI_SIDE_BUY:
 				{
 					os << "[side=buy][PositionNo=" << info->PositionNo << "][overnight=" << info->PositionQty << "][price=" << info->PositionPrice << "]";
+					// this->calcPositions(instrumentID, Side::BUY, PositionType::OPEN_OVERNIGHT, info->PositionQty);
 					this->resetPosition(instrumentID, Side::BUY, PositionType::OPEN_OVERNIGHT, info->PositionQty);
 					break;
 				}
 				case TAPI_SIDE_SELL:
 				{
 					os << "[side=sell][PositionNo=" << info->PositionNo << "][overnight=" << info->PositionQty << "][price=" << info->PositionPrice << "]";
+					// this->calcPositions(instrumentID, Side::SELL, PositionType::OPEN_OVERNIGHT, info->PositionQty);
 					this->resetPosition(instrumentID, Side::SELL, PositionType::OPEN_OVERNIGHT, info->PositionQty);
 					break;
 				}
@@ -694,12 +696,14 @@ void TAP_CDECL TAPOrderEntryImpl::OnRspQryPosition( TAPIUINT32 sessionID, TAPIIN
 				case TAPI_SIDE_BUY:
 				{
 					os << "[side=buy][PositionNo=" << info->PositionNo << "][today=" << info->PositionQty << "][price=" << info->PositionPrice << "]";
+					// this->calcPositions(instrumentID, Side::BUY, PositionType::OPEN_TODAY, info->PositionQty);
 					this->resetPosition(instrumentID, Side::BUY, PositionType::OPEN_TODAY, info->PositionQty);
 					break;
 				}
 				case TAPI_SIDE_SELL:
 				{
 					os << "[side=sell][PositionNo=" << info->PositionNo << "][today=" << info->PositionQty << "][price=" << info->PositionPrice << "]";
+					// this->calcPositions(instrumentID, Side::SELL, PositionType::OPEN_TODAY, info->PositionQty);
 					this->resetPosition(instrumentID, Side::SELL, PositionType::OPEN_TODAY, info->PositionQty);
 					break;
 				}
@@ -1358,4 +1362,34 @@ bool TAPOrderEntryImpl::getSecurityDefinitionByShortname(std::string _shortname,
 	}
 	_bucket = (*this->securityCacheByShortname)[_shortname];
 	return true;
+}
+
+void TAPOrderEntryImpl::calcPositions(const string& instrumentID, const Side* side, const PositionType* positionType, int positionQty)
+{
+	string key="";
+	genKey(key, instrumentID, Side::BUY->value,PositionType::OPEN_OVERNIGHT->value);
+	if(CollectionsHelper::containsKey(this->positionStaticMap,key)){
+		(*this->positionStaticMap)[key] = (*this->positionStaticMap)[key] + positionQty;
+	}else{
+		(*this->positionStaticMap)[key] = positionQty;
+	}
+}
+
+void TAPOrderEntryImpl::resetAccountPositions()
+{	
+	std::ostringstream os;
+	for(auto iter = this->positionStaticMap->begin(); iter != this->positionStaticMap->end(); ++iter)
+	{
+		std::string key = iter->first;
+		int qty = (*this->positionStaticMap)[key];
+
+		string instrumentID="";
+		int sideValue=0;
+		int posTypeValue=0;
+		deGenKey(key, instrumentID, sideValue, posTypeValue);
+		const Side* side = Side::getSide(sideValue);
+		const PositionType* positionType = PositionType::getPositionType(posTypeValue);
+
+		this->resetPosition(instrumentID, side, positionType, qty);
+	}
 }
